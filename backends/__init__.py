@@ -41,7 +41,7 @@ def _q50_hw():
     url = os.environ.get("IQM_SERVER_URL")
     if not token or not url:
         raise BackendUnavailable(
-            "q50_hw requires IQM_SERVER_URL and IQM_TOKEN (on-site only)."
+            "q50_hw requires IQM_SERVER_URL and IQM_TOKEN (or IQM_TOKENS_FILE) (on-site only)."
         )
     from iqm.qiskit_iqm import IQMProvider
     return IQMProvider(url).get_backend()
@@ -58,4 +58,9 @@ _REGISTRY = {
 def get_backend(name: str):
     if name not in _REGISTRY:
         raise ValueError(f"Unknown backend {name!r}; choose from {sorted(_REGISTRY)}")
-    return _REGISTRY[name]()
+    try:
+        return _REGISTRY[name]()
+    except BackendUnavailable:
+        raise
+    except Exception as exc:
+        raise BackendUnavailable(f"Backend {name!r} unavailable: {exc}") from exc

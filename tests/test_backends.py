@@ -19,7 +19,10 @@ def test_q50_fake_is_iqm_fake_backend():
     assert "cz" in names
 
 
-def test_q50_hw_guarded_without_credentials():
+def test_q50_hw_guarded_without_credentials(monkeypatch):
+    monkeypatch.delenv("IQM_TOKEN", raising=False)
+    monkeypatch.delenv("IQM_TOKENS_FILE", raising=False)
+    monkeypatch.delenv("IQM_SERVER_URL", raising=False)
     with pytest.raises(BackendUnavailable):
         get_backend("q50_hw")
 
