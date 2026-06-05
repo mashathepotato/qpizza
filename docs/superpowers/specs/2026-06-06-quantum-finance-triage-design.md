@@ -123,6 +123,7 @@ qhack/
                                #   catch+log failures, checkpoint/resume — never crashes the night
     rubric.py                  # AdvantageRecord schema + scoring/ranking formula
     digest.py                  # deterministic REPORT.md + plots; optional LLM analyst layer
+    dashboard.py               # regenerates self-contained dashboard.html (auto-refresh, per-method)
     harness/
       qae.py                   # IQAE/MLQAE — option pricing (B) + VaR/CVaR (E)
       qaoa.py                  # cardinality-constrained portfolio QUBO
@@ -132,7 +133,8 @@ qhack/
       classical_opt.py         # simulated annealing / exact for small portfolios
       classical_kernel.py      # RBF / linear-kernel SVM
     records.jsonl              # the ledger (file-based state, efferents-style)
-    plots/                     # auto-generated advantage curves
+    plots/                     # auto-generated advantage curves (PNG, embedded into dashboard)
+    dashboard.html            # live self-contained dashboard (leave open overnight)
     REPORT.md                  # morning output
   data/                        # ULB credit-card fraud, subsampled → ≤10 features/qubits
   sweeps/all.yaml              # per-candidate config grids
@@ -160,13 +162,40 @@ Terminal-launched (macOS launchd has TCC issues reading `~/Documents`; the
 - Experiments are **local, deterministic, $0, no network** → near-zero unattended
   risk. Only the optional analyst step would cost anything.
 - The orchestrator **always** writes a deterministic, ranked `REPORT.md` + plots
-  via `digest.py` (no API dependency, guaranteed output).
+  via `digest.py` (no API dependency, guaranteed output), and regenerates the live
+  `dashboard.html` after every completed config so progress is watchable in a
+  browser overnight.
 - `ANTHROPIC_API_KEY` is **not set** in this environment, so the optional LLM
   analyst narrative is a no-op by default; if a key is provided later, one analyst
   call layers a narrative + draft "why quantum-native" slide on top. The
   deterministic report stands alone regardless.
 - Checkpoint/resume: a crash resumes from the last completed config rather than
   restarting the night.
+
+## Live dashboard
+
+`triage/dashboard.py` regenerates a **single self-contained `triage/dashboard.html`**
+(no server, no external assets — plots embedded as base64 PNGs, like efferents'
+`progress.py`) **after every completed config**, so it can be left open in a
+browser overnight and watched live.
+
+- **Auto-refresh:** a `<meta http-equiv="refresh" content="30">` tag re-loads the
+  file every 30s; opening it via `file://` is enough (no server).
+- **Per-method cards:** one card per method (QAE, QAOA, QML-fraud) with:
+  - a **brief plain-language description** of the method and its quantum-native claim,
+  - the headline AdvantageRecord fields (advantage direction win/tie/loss,
+    measured quantum vs classical metric, scaling signature),
+  - **visuals**: the method's advantage curve(s) (e.g. QAE samples→ε vs MC,
+    QAOA approx-ratio vs depth, fraud ROC/AUC) embedded inline,
+  - **Q50-readiness badge** (`q50_faithful_runnable`) and a `demo_naturalness` /
+    `op_business_fit` line.
+- **Top banner:** overall progress (configs done / total), current leader per the
+  ranking formula, and last-updated timestamp.
+
+`dashboard.py` reads only `records.jsonl` + `plots/`, so it is pure presentation
+and can be re-run standalone at any time. It shares the ranking formula with
+`digest.py` (both import from `rubric.py`) so the live leader and the morning
+`REPORT.md` never disagree.
 
 ## Testing
 
@@ -188,10 +217,10 @@ Terminal-launched (macOS launchd has TCC issues reading `~/Documents`; the
 3. QAE harness (covers B + E) + Monte-Carlo baseline + known-answer test
 4. QAOA harness + classical baseline + known-answer test
 5. fraud data prep (ULB) + fraud-QML harness + classical-kernel baseline + test
-6. `rubric.py` + `orchestrator.py` + `digest.py`
+6. `rubric.py` + `orchestrator.py` + `digest.py` + `dashboard.py`
 7. `sweeps/all.yaml`
 8. demo shell wired to the fraud console (local_aer), backend dropdown
-9. 30-second smoke sweep → fix → launch under `caffeinate`
+9. 30-second smoke sweep → fix → launch under `caffeinate` (open `dashboard.html`)
 
 ## Decisions made by default (no objection raised)
 
