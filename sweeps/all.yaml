@@ -1,0 +1,26 @@
+# Tiny grid for a fast end-to-end check before the real launch.
+smoke:
+  qae:
+    - {config_id: b_s, candidate: B, p: 0.3, epsilon: 0.1, backend: local_aer}
+  qaoa:
+    - {config_id: a_s, candidate: A, n_assets: 4, k: 2, reps: 1, seed: 0, backend: local_aer}
+  fraud_qml:
+    - {config_id: d_s, candidate: D, n: 60, n_features: 4, backend: local_aer, seed: 0}
+
+# The overnight grid.
+all:
+  qae:
+    - {config_id: b_eps_10, candidate: B, p: 0.3, epsilon: 0.10, backend: local_aer}
+    - {config_id: b_eps_05, candidate: B, p: 0.3, epsilon: 0.05, backend: local_aer}
+    - {config_id: b_eps_02, candidate: B, p: 0.3, epsilon: 0.02, backend: local_aer}
+    - {config_id: e_eps_05, candidate: E, p: 0.1, epsilon: 0.05, backend: local_aer}
+    - {config_id: e_eps_02, candidate: E, p: 0.1, epsilon: 0.02, backend: local_aer}
+  qaoa:
+    - {config_id: a_n4_p1, candidate: A, n_assets: 4, k: 2, reps: 1, seed: 0, backend: local_aer}
+    - {config_id: a_n4_p2, candidate: A, n_assets: 4, k: 2, reps: 2, seed: 0, backend: local_aer}
+    - {config_id: a_n6_p2, candidate: A, n_assets: 6, k: 3, reps: 2, seed: 1, backend: local_aer}
+    - {config_id: a_n8_p3, candidate: A, n_assets: 8, k: 3, reps: 3, seed: 2, backend: local_aer}
+  fraud_qml:
+    - {config_id: d_f4, candidate: D, n: 150, n_features: 4, backend: local_aer, seed: 0}
+    - {config_id: d_f6, candidate: D, n: 150, n_features: 6, backend: local_aer, seed: 0}
+    - {config_id: d_f8, candidate: D, n: 200, n_features: 8, backend: local_aer, seed: 1}
