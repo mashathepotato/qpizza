@@ -7,3 +7,6 @@ triage/REPORT.md
 triage/.checkpoint.json
 data/raw/
 *.pkl
+
+# Python build metadata
+*.egg-info/
