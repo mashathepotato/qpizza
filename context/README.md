@@ -7,6 +7,9 @@ Shared reference for our team (2 CS + 2 physics). Goal: a creative, end-to-end,
 - [`challenge.md`](./challenge.md) — the official challenge, judging criteria, prizes, stakes.
 - [`strategy.md`](./strategy.md) — how we win: scoring, the originality trap, team roles, demo
   must-haves.
+- [`literature-review.md`](./literature-review.md) — **verified lit review + 6 cross-domain
+  paper combinations** (tensor networks, noise physics, qGAN+QAE, contagion, quantum TDA,
+  reservoir computing). Start here for the idea.
 - [`ideas.md`](./ideas.md) — candidate directions + decision log.
 - [`resources.md`](./resources.md) — frameworks, papers, datasets, setup.
 

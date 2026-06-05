@@ -49,6 +49,31 @@ Space to invent. Promising combinations:
 
 ---
 
+## Cross-domain combinations (from `literature-review.md`) — 🔬
+These pair two papers from very different fields so the quantum part is *essential*. Full
+detail + citations + scoring table in `literature-review.md`. Ranked shortlist:
+
+- **A. Tensor networks ⊕ quantum portfolio/risk** ✅ — import qMERA/qTTN topology from
+  condensed-matter → *trainable-by-design* ansatz that dodges barren plateaus. Highest
+  novelty+depth; likely white-space. (Martin-Plekhanov-Lubasch 2023 + Buonaiuto 2023)
+- **B. Open-system noise physics ⊕ robust CVaR** ✅ — amplitude-damping "noise-induced limit
+  set" reinterpreted as a model-uncertainty band on tail risk. Imperfection-as-feature.
+  (Singkanipa-Lidar 2025 + Woerner-Egger 2019)
+- **C. qGAN ⊕ QAE end-to-end pricing** ✅ — learn a fat-tailed distribution, load in poly(n)
+  gates, price with QAE. **Lowest finish risk → our demoable core.** (Zoufal 2019 +
+  Stamatopoulos 2020)
+- **D. Epidemiology contagion ⊕ QAOA systemic risk** 🔶 — default cascade = epidemic on a
+  graph → QAOA. Core to a systemic bank like OP.
+- **E. Topological data analysis ⊕ quantum TDA** 💭 — Betti-number crash early-warning,
+  exponential speedup. Max novelty, higher research risk; verify qTDA paper first.
+- **F. Brain reservoir computing ⊕ quantum reservoir** 💭 — training-free quantum dynamics for
+  volatility/regime forecasting; sidesteps barren plateaus entirely.
+
+**Suggested play:** A or B for the wow-factor, C as the reliable demo — or fuse them
+(tensor-net-structured qGAN→QAE pipeline, or a noise-aware CVaR engine).
+
+---
+
 ## Decision (fill in at event)
 - Chosen idea: ___
 - Why it survives the originality litmus test: ___
