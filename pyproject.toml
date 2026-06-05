@@ -1,0 +1,32 @@
+[project]
+name = "qpizza"
+version = "0.1.0"
+description = "Overnight quantum-finance triage lab"
+requires-python = ">=3.11"
+dependencies = [
+    "qiskit>=1.2,<1.3",
+    "qiskit-aer>=0.15,<0.16",
+    "qiskit-algorithms>=0.3,<0.4",
+    "qiskit-finance>=0.4",
+    "qiskit-optimization>=0.6",
+    "qiskit-iqm>=15.0,<18.0",
+    "iqm-client>=22.10,<23.0",
+    "pennylane>=0.38",
+    "pennylane-qiskit>=0.38",
+    "scikit-learn>=1.4",
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "matplotlib>=3.8",
+    "streamlit>=1.36",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["triage*", "backends*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

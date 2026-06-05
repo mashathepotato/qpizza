@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+triage/records.jsonl
+triage/plots/
+triage/dashboard.html
+triage/REPORT.md
+triage/.checkpoint.json
+data/raw/
+*.pkl
