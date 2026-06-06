@@ -1,0 +1,6 @@
+# Experimental sidecar deps (on top of numpy/scipy/matplotlib/yfinance).
+# Install into the quantum_pricer venv:
+#   quantum_pricer/.venv/bin/python -m pip install -r experiments/quantum_rnn/requirements.txt
+torch>=2.0          # classical RNN/GRU/LSTM + hybrid quantum cells (TorchLayer)
+pennylane>=0.35     # quantum recurrent cells (data-reuploading VQC, default.qubit)
+arch>=6.0           # GARCH(1,1) baseline (pulls in statsmodels for AR(|r|))
