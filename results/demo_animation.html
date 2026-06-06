@@ -167,7 +167,9 @@ RENDERERS[2] = function(el){ // renderAct2
     '<h1>Read the price without collapsing it</h1>'
    +'<p class="cap">Every model estimates the option price at once against the ground truth line '
    +'(exact CRR tree = <span class="num">€'+gt.toFixed(4)+'</span>). Our exact/Fourier route '
-   +'<b>snaps</b> to truth; Monte Carlo creeps; the textbook SOTA lags on its costly loading oracle.</p>'
+   +'<b>snaps</b> to truth; Monte Carlo creeps in with samples; the textbook SOTA sits furthest off — '
+   +'its &plusmn;3&sigma; truncation and rescaling-linearisation bias dominate that gap (its distribution-'
+   +'loading oracle is the costly circuit we avoid, a separate point). Bars: closeness each to its own reference.</p>'
    + bars + liveControls();
 };
 
