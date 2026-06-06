@@ -83,9 +83,63 @@ document.addEventListener('keydown', e=>{
   const k = e.key.toLowerCase();
   if(k==='e'){ COCKPIT=!COCKPIT; show(); return; }
   if(COCKPIT) return;
-  if(e.key==='ArrowRight'||e.key===' '){ ACT=Math.min(ACT+1, ACTS.length-1); show(); }
+  if(e.key==='ArrowRight'||e.key===' '){ if(e.key===' ') e.preventDefault(); ACT=Math.min(ACT+1, ACTS.length-1); show(); }
   if(e.key==='ArrowLeft'){ ACT=Math.max(ACT-1, 0); show(); }
 });
+
+// ---- helpers ----------------------------------------------------------------
+function polyline(pts, color, w){
+  return '<polyline points="'+pts.map(p=>p[0]+','+p[1]).join(' ')
+       + '" fill="none" stroke="'+color+'" stroke-width="'+(w||2)+'"/>';
+}
+function scalePath(closes, W, H){
+  const lo=Math.min(...closes), hi=Math.max(...closes), span=(hi-lo)||1;
+  return closes.map((c,i)=>[ i*(W/(closes.length-1)), H-(c-lo)/span*H ]);
+}
+
+// ---- Act 0: the madness of people ------------------------------------------ renderAct0
+RENDERERS[0] = function(el){
+  const p = DATA.prices;
+  const closes = p ? p.closes : [];
+  const W=900,H=240, pts = closes.length ? scalePath(closes,W,H) : [];
+  el.innerHTML =
+    '<h1>The madness of people is quantum</h1>'
+   +'<p class="cap">Newton could not predict "the madness of people"; Feynman said classical '
+   +'intuition fails on the quantum world. Both say the same thing: <b>markets are non-classical.</b> '
+   +'Here is real '+(p? p.ticker : 'NOKIA.HE')+', jagged and unpredictable'
+   +(p && p.source!=='yfinance' ? ' <i>(synthetic stand-in — offline)</i>' : '')+'.</p>'
+   +'<svg viewBox="0 0 '+W+' '+H+'">'+ (pts.length? polyline(pts,'#6c8cff',2):'') +'</svg>';
+};
+
+// ---- Act 1: load every path at once ---------------------------------------- renderAct1
+RENDERERS[1] = function(el){
+  const p = DATA.prices; const M = p && p.tree ? p.tree.M : 3;
+  const W=420,H=240, x0=10, dx=(W-20)/M;
+  // draw all 2^M up/down paths from S0 (CRR: up=bit 1)
+  let lines='';
+  const N=Math.pow(2,M);
+  for(let path=0; path<N; path++){
+    let y=H/2, pts=[[x0,y]];
+    for(let step=0; step<M; step++){
+      const up=(path>>step)&1; y += up? -H/(2*(M+1)) : H/(2*(M+1));
+      pts.push([x0+(step+1)*dx, y]);
+    }
+    lines += polyline(pts,'rgba(108,140,255,0.45)',1);
+  }
+  el.innerHTML =
+    '<h1>Load every path at once</h1>'
+   +'<p class="cap"><span class="num">M</span> single-qubit rotations load all '
+   +'<span class="num">2<sup>M</sup></span> price paths into one superposition — '
+   +'<b>free and exact, no loading oracle</b> (the cost that bottlenecks textbook quantum pricers).</p>'
+   +'<div style="display:flex;gap:30px;align-items:center">'
+   +'<svg viewBox="0 0 '+W+' '+H+'" style="max-width:440px">'+lines+'</svg>'
+   +'<div style="font-size:40px;color:var(--muted)">&rarr;</div>'
+   +'<div class="panel" style="width:260px;height:160px;background:'
+   +'radial-gradient(circle at 40% 40%,#6c8cff55,transparent 70%),'
+   +'radial-gradient(circle at 65% 60%,#9b6cff44,transparent 70%)">'
+   +'<div class="label">superposition of '+N+' paths</div></div></div>';
+};
+
 loadData().then(show);
 </script>
 </body>
