@@ -20,6 +20,7 @@ from quantum_pricer.data import nokia_price_series
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
 AXIS_LABEL_CONVERGENCE = "oracle queries / samples (resource spent, NOT wall-clock)"
+T_MATURITY = 1.0
 
 
 def build_convergence(S0, K, r, sigma, T, M=5, seeds=6):
@@ -72,14 +73,14 @@ def hardware_placeholder():
 
 
 def main(out_dir=None, allow_network=True, M_paths=3, M_conv=5, seeds=6):
-    out_dir = out_dir or os.path.join(_HERE)
+    out_dir = out_dir or _HERE
     os.makedirs(out_dir, exist_ok=True)
     series, meta = nokia_price_series(allow_network=allow_network)
     S0, sigma, r = series["S0"], series["sigma"], series["r"]
     K = round(S0, 2)
 
-    prices = build_prices((series, meta), K=K, T=1.0, M_paths=M_paths)
-    conv = build_convergence(S0=S0, K=K, r=r, sigma=sigma, T=1.0, M=M_conv, seeds=seeds)
+    prices = build_prices((series, meta), K=K, T=T_MATURITY, M_paths=M_paths)
+    conv = build_convergence(S0=S0, K=K, r=r, sigma=sigma, T=T_MATURITY, M=M_conv, seeds=seeds)
 
     with open(os.path.join(out_dir, "prices.json"), "w") as fh:
         json.dump(prices, fh, indent=2)
@@ -94,4 +95,4 @@ def main(out_dir=None, allow_network=True, M_paths=3, M_conv=5, seeds=6):
 
 if __name__ == "__main__":
     main()
-    print("wrote prices.json, convergence.json, hardware.json to results/")
+    print("wrote prices.json + convergence.json to results/ (hardware.json only if it was absent)")
