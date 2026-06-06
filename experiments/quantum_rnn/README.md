@@ -78,10 +78,10 @@ before believing a surprising win) is part of the result.
   true vol-event days → `predictions_per_day.png` (v1 static; animation is future work).
 - `ensemble_plot.py` — frozen-expert ensembles: classical (4 NN + GARCH(1,1)) vs
   quantum (4 NN). Each member's held-out score is min-max normalized then uniformly
-  averaged (no learned gate). Two-panel figure → `ensemble_predictions.png`: top = actual
-  price with true vol-event days marked; bottom = the two ensemble prediction scores.
-  Classical 0.651 vs quantum 0.655 held-out AUC — a dead heat. Also writes the raw plot
-  data to `ensemble_export/` (CSV + JSON + CONTEXT.md) for sharing/re-plotting.
+  averaged (no learned gate). Figure → `ensemble_predictions.png`: the two ensemble
+  prediction-score lines vs trading day, with true vol-event days shaded. Classical ≈0.65
+  vs quantum 0.655 held-out AUC — a dead heat. Also writes the raw plot data to
+  `ensemble_export/` (CSV + JSON + CONTEXT.md) for sharing/re-plotting.
 - `ensemble_export/` — self-contained raw data behind the ensemble figure (per-day price,
   true events, both ensemble scores, per-member normalized scores, `summary.json`,
   `CONTEXT.md`). Hand this folder to anyone who wants to make their own plots.

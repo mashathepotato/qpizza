@@ -118,7 +118,7 @@ def main():
     print(f"QUANTUM   ensemble (4 NN)          AUC = {q_auc:.3f}  "
           f"(members mean {np.mean(list(q_aucs.values())):.3f})")
 
-    _plot(day, prices, y_te, c_ens, q_ens, c_auc, q_auc, provenance)
+    _plot(day, y_te, c_ens, q_ens, c_auc, q_auc, provenance)
     print(f"saved {OUT}")
     _export(day, prices, y_te, next_abs_te, c_arrs, q_arrs, c_ens, q_ens,
             c_aucs, q_aucs, c_auc, q_auc, task, provenance)
@@ -167,43 +167,33 @@ def _export(days, prices, y_te, next_abs_te, c_arrs, q_arrs, c_ens, q_ens,
         json.dump(summary, f, indent=2)
 
 
-def _plot(days, prices, y_true, c_ens, q_ens, c_auc, q_auc, provenance):
-    ink, c_col, q_col, ev_col = "#22223b", "#c44536", "#2a6f97", "#c44536"
-    ev_days = days[y_true == 1]
-    fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(12, 8), sharex=True,
-                                   gridspec_kw=dict(height_ratios=[1, 1]))
-
-    # --- top: actual price, with true vol-event days marked ON the price ---
-    ax0.plot(days, prices[days], color=ink, lw=1.5, label="NOKIA.HE close")
-    ax0.scatter(ev_days, prices[ev_days], color=ev_col, s=30, zorder=5,
-                label="true vol event (next-day top-decile |return|)")
-    ax0.set_ylabel("price (EUR)")
-    ax0.set_title("Frozen-expert ensembles — classical (incl. GARCH) vs quantum "
-                  "(NOKIA.HE, held-out)")
-    ax0.legend(loc="upper left", fontsize=9.5)
-
-    # --- bottom: the two ensemble prediction scores, same event days shaded ---
+def _plot(days, y_true, c_ens, q_ens, c_auc, q_auc, provenance):
+    c_col, q_col, ev_col = "#c44536", "#2a6f97", "#c44536"
+    fig, ax = plt.subplots(figsize=(12, 6))
     first = True
-    for d in ev_days:
-        ax1.axvspan(d - 0.5, d + 0.5, color=ev_col, alpha=0.14, lw=0,
-                    label="true vol event" if first else None)
-        first = False
-    ax1.plot(days, c_ens, color=c_col, lw=2.0,
-             label=f"classical: 4 NN + GARCH  AUC {c_auc:.3f}")
-    ax1.plot(days, q_ens, color=q_col, lw=2.0,
-             label=f"quantum: 4 NN  AUC {q_auc:.3f}")
-    ax1.set_xlim(days[0], days[-1])
-    ax1.set_ylim(-0.03, 1.03)
-    ax1.set_ylabel("ensemble score (normalized)")
-    ax1.set_xlabel("held-out trading day")
-    ax1.legend(loc="upper left", fontsize=9.5)
+    for d, yy in zip(days, y_true):
+        if yy == 1:
+            ax.axvspan(d - 0.5, d + 0.5, color=ev_col, alpha=0.16, lw=0,
+                       label="true vol event" if first else None)
+            first = False
+    ax.plot(days, c_ens, color=c_col, lw=2.0,
+            label=f"classical: 4 NN + GARCH  AUC {c_auc:.3f}")
+    ax.plot(days, q_ens, color=q_col, lw=2.0,
+            label=f"quantum: 4 NN  AUC {q_auc:.3f}")
+    ax.set_xlim(days[0], days[-1])
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_xlabel("held-out trading day")
+    ax.set_ylabel("ensemble score (normalized)")
+    ax.set_title("Frozen-expert ensembles — classical (incl. GARCH) vs quantum "
+                 "(NOKIA.HE, held-out)")
+    ax.legend(loc="upper left", fontsize=9.5)
 
-    cap = ("Top: actual NOKIA.HE price with the true volatility-event days (next-day "
-           "top-decile |return|) marked. Bottom: the model PREDICTIONS for those events "
-           "-- classical = RNN/GRU/LSTM/Transformer (seed-averaged) + GARCH(1,1), quantum "
-           "= QRNN/QGRU/QLSTM/QTransformer; each member min-max normalized then averaged "
-           "uniformly. Models predict next-day VOLATILITY, not price. Near-identical AUC "
-           f"({c_auc:.3f} vs {q_auc:.3f}) -- no classical/quantum separation.")
+    cap = ("Classical = RNN/GRU/LSTM/Transformer (each seed-averaged over 5 seeds) + "
+           "GARCH(1,1); quantum = QRNN/QGRU/QLSTM/QTransformer. Each member's held-out "
+           "score min-max normalized to [0,1], then averaged uniformly (no learned gate). "
+           "Shaded = true top-decile next-day |return| days. Models predict next-day "
+           f"VOLATILITY, not price. Near-identical AUC ({c_auc:.3f} vs {q_auc:.3f}) -- "
+           "no classical/quantum separation.")
     if _HAVE_STYLE:
         style.caption(fig, cap)
         style.provenance(fig, provenance)
