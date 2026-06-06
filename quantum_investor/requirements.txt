@@ -1,0 +1,5 @@
+pennylane>=0.34
+autoray<0.7          # pennylane 0.38 needs the older autoray API (NumpyMimic)
+numpy>=1.23
+scipy>=1.9
+matplotlib>=3.6
