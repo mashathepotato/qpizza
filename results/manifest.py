@@ -45,6 +45,7 @@ TRACKS = [
         "figure": _p("results", "figures", "price_forecast.png"),
         "extra_figures": [
             _p("results", "figures", "backtest_rolling.png"),
+            _p("results", "figures", "backtest_routes_timeseries.png"),
             _p("results", "figures", "backtest_walkforward.png"),
             _p("results", "figures", "model_results.png"),
             _p("results", "figures", "error_vs_queries.png"),
@@ -58,14 +59,22 @@ TRACKS = [
                                    "S0=13.09 EUR, the CRR risk-neutral tree predicts the "
                                    "price distribution over the 1-year horizon (E[S_T]=13.49, "
                                    "forward). The terminal distribution is what the call is priced on."),
-            "backtest_rolling.png": ("Rolling backtest: sliding 60-day windows (stride 1, "
-                                     "0-60, 1-61, ...), each calibrated on its first 30 days and "
-                                     "forecasting the next 30 (M=8 steps). Every future day is "
-                                     "forecast by up to 30 overlapping windows, averaged per day. "
-                                     "Realized price breaks above the risk-neutral cone (67% "
-                                     "coverage) - honest: it underpredicts a momentum stock. The "
-                                     "QNDM forecast and MC mean coincide; all 4 routes agree on "
-                                     "the option price (MAE vs exact tree in the inset)."),
+            "backtest_rolling.png": ("PREDICTION TARGET = the underlying NOKIA.HE price 30 trading "
+                                     "days ahead (NOT the option price). Sliding 60-day windows "
+                                     "(stride 1), each calibrated on its first 30 days; every future "
+                                     "day is forecast by up to 30 overlapping windows, averaged. "
+                                     "Top: predicted price + 5-95% range vs realized (black). Bottom: "
+                                     "forecast error (predicted - realized) over time - negative "
+                                     "because the risk-neutral forecast under-shoots the realized "
+                                     "uptrend. The 4 routes differ only in OPTION price, not this "
+                                     "underlying forecast."),
+            "backtest_routes_timeseries.png": ("Full verification: an ATM call priced on EVERY "
+                                               "one of the 192 sliding windows with all four routes "
+                                               "(real circuit runs, no analytic shortcut). Top: price "
+                                               "per route vs exact tree; bottom: abs error (log). "
+                                               "Fourier is statevector-exact (~1e-8), QAE ~2e-5 "
+                                               "(beats its 0.01 target), MC ~1.6e-3 (sampling), "
+                                               "QSVT ~4.5e-3 (straddle floor) - all routes agree."),
             "backtest_walkforward.png": ("Walk-forward backtest: the year is cut into 60-day "
                                          "chunks; each forecast cone (M=8 steps, ~3.75 trading "
                                          "days/step) is calibrated on the prior 30 days (shaded) "

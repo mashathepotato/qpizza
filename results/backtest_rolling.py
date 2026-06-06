@@ -144,33 +144,60 @@ def main():
     print(f"  averaged option-price MAE vs exact tree over {N_SUBSET} windows: "
           f"{ {k: round(v,4) for k,v in mae.items()} }")
 
-    fig, ax = plt.subplots(figsize=(13, 6))
+    # forecast error per day = predicted E[S_t] - realized price
+    realized = np.array([prices[d] for d in dE])
+    err = E - realized
+    half = (hi - lo) / 2.0                       # cone half-width reference
+    mae_fc = float(np.mean(np.abs(err)))
+    rmse_fc = float(np.sqrt(np.mean(err ** 2)))
+    print(f"  PREDICTION TARGET = underlying NOKIA.HE price, {PRED} trading days ahead")
+    print(f"  forecast error (predicted - realized): MAE={mae_fc:.3f} EUR, RMSE={rmse_fc:.3f} EUR")
+
     days = np.arange(n)
-    ax.plot(days[CAL:], prices[CAL:], color=style.PALETTE["ink"], lw=1.8, zorder=5,
-            label="realized price (ground truth)")
-    ax.fill_between(dhi, lo, hi, color=style.PALETTE["quantum"], alpha=0.15,
-                    label="avg 5-95% cone")
-    ax.plot(dE, E, color=style.PALETTE["quantum"], lw=2.0, zorder=4,
-            label="avg QNDM forecast E[S_t]  (all 4 routes share this)")
-    ax.plot(dmc, mc, color=style.PALETTE["classical"], lw=1.4, ls="--", zorder=3,
-            label="avg Monte-Carlo mean path")
-    ax.set_xlim(CAL, n - 1)
-    ax.set_xlabel("trading day")
-    ax.set_ylabel("NOKIA.HE price  [EUR]")
-    ax.set_title("Rolling backtest (sliding 60-day windows, stride 1): averaged "
-                 "predictions from day 30 vs realized price")
+    fig, (axP, axE) = plt.subplots(2, 1, figsize=(13, 8), sharex=True,
+                                   gridspec_kw={"height_ratios": [2.0, 1.0]})
+
+    # ---- Top: WHAT IS PREDICTED = the underlying price 30 days ahead ----
+    axP.plot(days[CAL:], prices[CAL:], color=style.PALETTE["ink"], lw=1.8, zorder=5,
+             label="realized price (ground truth)")
+    axP.fill_between(dhi, lo, hi, color=style.PALETTE["quantum"], alpha=0.15,
+                     label="predicted 5-95% range")
+    axP.plot(dE, E, color=style.PALETTE["quantum"], lw=2.0, zorder=4,
+             label="predicted price E[S_t]  (all 4 routes share this)")
+    axP.plot(dmc, mc, color=style.PALETTE["classical"], lw=1.4, ls="--", zorder=3,
+             label="Monte-Carlo mean path")
+    axP.set_ylabel("NOKIA.HE price  [EUR]")
+    axP.set_title("PREDICTING: the underlying NOKIA.HE price 30 trading days ahead "
+                  "(rolling sliding windows, stride 1, M=8)")
     mae_txt = ", ".join(f"{k} {v:.1e}" for k, v in mae.items())
-    ax.text(0.99, 0.02,
-            f"avg cone coverage: {coverage:.0f}%   |   avg option-price MAE vs exact tree: {mae_txt}",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=8.5,
-            color=style.PALETTE["muted"])
-    ax.legend(loc="upper left", fontsize=9)
-    style.caption(fig, "Every future day is forecast by up to 30 overlapping windows; "
-                       "predictions are averaged per day. Cone width from calibrated sigma_hat; "
-                       "centre = risk-neutral forward. All 4 routes agree on the option price "
-                       "(MAE vs exact tree, inset), so they share one forecast line.")
-    style.provenance(fig, "quantum_pricer routes; NOKIA.HE 1y daily (yfinance); risk-neutral drift")
-    fig.tight_layout(rect=[0, 0.03, 1, 0.97])
+    axP.text(0.99, 0.03,
+             f"price-forecast MAE={mae_fc:.2f} EUR  |  cone coverage {coverage:.0f}%  |  "
+             f"option-price MAE vs exact tree: {mae_txt}",
+             transform=axP.transAxes, ha="right", va="bottom", fontsize=8,
+             color=style.PALETTE["muted"])
+    axP.legend(loc="upper left", fontsize=9)
+
+    # ---- Bottom: forecast ERROR time series ----
+    axE.fill_between(dE, -half, half, color=style.PALETTE["muted"], alpha=0.20,
+                     label="+/- cone half-width (predicted uncertainty)")
+    axE.axhline(0, color=style.PALETTE["ink"], lw=1.0)
+    axE.plot(dE, err, color=style.PALETTE["accent"], lw=1.6,
+             label="forecast error = predicted - realized")
+    axE.set_xlim(CAL, n - 1)
+    axE.set_xlabel("trading day")
+    axE.set_ylabel("price error  [EUR]")
+    axE.set_title("Forecast error over time (predicted price - realized price)")
+    axE.legend(loc="lower left", fontsize=9)
+
+    fig.suptitle("Rolling price-prediction backtest - NOKIA.HE underlying price "
+                 "(not the option price)", fontsize=13, fontweight="bold")
+    style.caption(fig, "Top: the model PREDICTS the underlying stock price 30 days ahead; "
+                       "black = realized. Bottom: forecast error vs time. Negative error = the "
+                       "risk-neutral forecast under-shoots the realized uptrend (momentum it "
+                       "cannot know). The 4 routes differ only in OPTION price (inset MAE), not "
+                       "in this underlying forecast.")
+    style.provenance(fig, "quantum_pricer; NOKIA.HE 1y daily (yfinance); risk-neutral drift")
+    fig.tight_layout(rect=[0, 0.03, 1, 0.96])
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     fig.savefig(OUT)
     plt.close(fig)
