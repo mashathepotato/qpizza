@@ -47,3 +47,51 @@ def build_convergence(S0, K, r, sigma, T, M=5, seeds=6):
     return dict(ground_truth=gt, M=M,
                 axis_label=AXIS_LABEL_CONVERGENCE,
                 series=series, slopes=slopes, notes=notes)
+
+
+def build_prices(series_meta, K, T, M_paths=3):
+    """Real price path (act 1) + the exact 2^M CRR tree (act 2 superposition)."""
+    series, meta = series_meta
+    S0, sigma, r = series["S0"], series["sigma"], series["r"]
+    vals = tree.payoff_variable_values(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_paths)
+    probs = tree.path_probabilities(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_paths)
+    return dict(ticker=meta.get("ticker", "NOKIA.HE"), currency="EUR",
+                source=meta.get("source", "synthetic"),
+                window="%s..%s" % (series["dates"][0], series["dates"][-1]),
+                dates=series["dates"], closes=series["closes"],
+                S0=S0, sigma=sigma, r=r, K=K, T=T,
+                tree=dict(M=M_paths,
+                          terminal_values=[float(v) for v in vals],
+                          path_probs=[float(p) for p in probs]))
+
+
+def hardware_placeholder():
+    """Q50 slot a teammate overwrites with real counts. Frontend shows 'pending'."""
+    return dict(status="pending", backend="Q50", route="fourier",
+                price=None, abs_error=None, shots=None, note="awaiting teammate Q50 run")
+
+
+def main(out_dir=None, allow_network=True, M_paths=3, M_conv=5, seeds=6):
+    out_dir = out_dir or os.path.join(_HERE)
+    os.makedirs(out_dir, exist_ok=True)
+    series, meta = nokia_price_series(allow_network=allow_network)
+    S0, sigma, r = series["S0"], series["sigma"], series["r"]
+    K = round(S0, 2)
+
+    prices = build_prices((series, meta), K=K, T=1.0, M_paths=M_paths)
+    conv = build_convergence(S0=S0, K=K, r=r, sigma=sigma, T=1.0, M=M_conv, seeds=seeds)
+
+    with open(os.path.join(out_dir, "prices.json"), "w") as fh:
+        json.dump(prices, fh, indent=2)
+    with open(os.path.join(out_dir, "convergence.json"), "w") as fh:
+        json.dump(conv, fh, indent=2)
+    hw_path = os.path.join(out_dir, "hardware.json")
+    if not os.path.exists(hw_path):          # never clobber a real Q50 result
+        with open(hw_path, "w") as fh:
+            json.dump(hardware_placeholder(), fh, indent=2)
+    return dict(prices=prices, convergence=conv)
+
+
+if __name__ == "__main__":
+    main()
+    print("wrote prices.json, convergence.json, hardware.json to results/")
