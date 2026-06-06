@@ -9,8 +9,10 @@ A Romero–Olson–Aspuru-Guzik (2017) style **quantum autoencoder** (PennyLane
 `default.qubit`, 4 qubits, 2 latent / 2 trash, ~16 params) trained on *calm*-period
 NOKIA.HE 4-day log-return windows so the trash qubits disentangle to `|00>`. The
 anomaly score is the reconstruction infidelity `1 − P(trash=|00>)`. Classical
-baseline: 2-component **PCA** reconstruction error (numpy SVD, 8 params), plus a
-trivial energy `‖z‖²` baseline. Everything is fully simulable on a laptop.
+baselines: a 2-component **PCA** reconstruction error (numpy SVD, 8 params, linear),
+a small **neural autoencoder** (4→tanh(2)→4, autograd-trained, 22 params, nonlinear —
+the fair nonlinear counterpart to the QAE), and a trivial energy `‖z‖²` baseline.
+Everything is fully simulable on a laptop.
 
 Design spec: `docs/superpowers/specs/2026-06-06-quantum-autoencoder-anomaly-design.md`.
 
@@ -19,12 +21,18 @@ Design spec: `docs/superpowers/specs/2026-06-06-quantum-autoencoder-anomaly-desi
 There are no true anomaly labels, so we use a **transparent proxy**: top-decile
 `|return|` days (volatility events). Two framings:
 
-| Task | What it asks | QAE | PCA-2 | energy ‖z‖² | note |
-|---|---|---|---|---|---|
-| **Concurrent detection** | flag day *t* (in the window) | 0.90 | 0.75 | 0.83 | **leaky** — `last \|z\|` alone = AUC 1.00 |
-| **Next-day prediction** (this figure) | foreshadow day *t+1* (not in window) | 0.64 | 0.68 | 0.64 | clean; only vol-clustering signal |
+| Task | What it asks | QAE | PCA-2 | neural AE | energy ‖z‖² | note |
+|---|---|---|---|---|---|---|
+| **Concurrent detection** | flag day *t* (in the window) | 0.90 | 0.75 | — | 0.83 | **leaky** — `last \|z\|` alone = AUC 1.00 |
+| **Next-day prediction** (this figure) | foreshadow day *t+1* (not in window) | 0.64 | 0.68 | 0.68 | 0.64 | clean; only vol-clustering signal |
 
 (held-out ROC-AUC; QAE is seed-stable, σ≈0.000 over 8 seeds.)
+
+The **neural autoencoder** is the decisive baseline: it has the same nonlinear
+expressivity story the quantum model relies on, yet on the honest next-day task it
+*ties PCA (0.68)* and *beats the QAE (0.64)*. So the quantum model's edge on the leaky
+concurrent task is not a nonlinearity advantage — it vanishes once the task is clean
+and a fair nonlinear classical baseline is present.
 
 - The flattering concurrent "win" is an artifact of **label leakage**: the flagged
   return is also one of the four model inputs, so a bare `|return|` detector scores
@@ -39,8 +47,8 @@ parity/negative comparison — not a leaderboard win.
 
 ## Files
 
-- `qautoencoder.py` — windowing, z-scoring, `QuantumAutoencoder`, `PCAReconstructor`, `roc_auc`.
-- `test_qautoencoder.py` — 10 unit tests (circuit shape, training reduces loss, spike > calm, PCA, AUC).
+- `qautoencoder.py` — windowing, z-scoring, `QuantumAutoencoder`, `PCAReconstructor`, `NeuralAutoencoder`, `roc_auc`.
+- `test_qautoencoder.py` — 15 unit tests (circuit shape, training reduces loss, spike > calm, PCA, neural AE, AUC).
 - `run_predictive.py` — the honest next-day experiment → `qml_autoencoder_predictive.png`.
 - `requirements.txt` — adds `pennylane` on top of the pricer venv.
 

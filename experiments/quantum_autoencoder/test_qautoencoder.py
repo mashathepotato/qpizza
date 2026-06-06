@@ -93,3 +93,44 @@ def test_roc_auc_perfect_separation():
     scores = np.array([0.1, 0.2, 0.8, 0.9])
     labels = np.array([0, 0, 1, 1])
     assert qa.roc_auc(scores, labels) == pytest.approx(1.0)
+
+
+def test_neural_ae_param_count():
+    # 4 -> 2 -> 4: W1(2x4)+b1(2)+W2(4x2)+b2(4) = 8+2+8+4 = 22
+    ae = qa.NeuralAutoencoder(n_inputs=4, n_latent=2, seed=0)
+    assert ae.n_params == 22
+
+
+def test_neural_ae_reconstruction_error_nonnegative():
+    rng = np.random.default_rng(10)
+    windows = rng.normal(0.0, 0.4, size=(30, 4))
+    ae = qa.NeuralAutoencoder(n_inputs=4, n_latent=2, seed=0).fit(windows, steps=50)
+    assert all(ae.score(w) >= 0.0 for w in windows)
+
+
+def test_neural_ae_training_reduces_loss():
+    rng = np.random.default_rng(11)
+    windows = rng.normal(0.0, 0.4, size=(40, 4))
+    ae = qa.NeuralAutoencoder(n_inputs=4, n_latent=2, seed=1)
+    before = ae._loss(ae.params, windows)
+    ae.fit(windows, steps=200, lr=0.05)
+    after = ae._loss(ae.params, windows)
+    assert after < before
+
+
+def test_neural_ae_spike_scores_higher_than_calm():
+    rng = np.random.default_rng(12)
+    calm = rng.normal(0.0, 0.4, size=(50, 4))
+    ae = qa.NeuralAutoencoder(n_inputs=4, n_latent=2, seed=2).fit(calm, steps=300)
+    calm_scores = np.array([ae.score(w) for w in calm])
+    spike = np.array([8.0, -7.0, 6.0, -8.0])
+    assert ae.score(spike) > calm_scores.mean()
+
+
+def test_neural_ae_deterministic_under_seed():
+    rng = np.random.default_rng(13)
+    windows = rng.normal(0.0, 0.4, size=(20, 4))
+    a = qa.NeuralAutoencoder(seed=5).fit(windows, steps=40)
+    b = qa.NeuralAutoencoder(seed=5).fit(windows, steps=40)
+    w = np.array([0.3, -0.2, 0.1, 0.4])
+    assert a.score(w) == b.score(w)

@@ -4,11 +4,14 @@ A Romero-Olson-Aspuru-Guzik (2017) style quantum autoencoder: angle-encode a
 length-k window of (z-scored) daily log-returns, run a parameterized encoder,
 and train so the `trash` qubits disentangle to |0>. The reconstruction
 infidelity ``1 - P(trash = |0...0>)`` is the anomaly score -- high on windows
-unlike the calm training regime. A numpy-SVD PCA reconstructor is the honest
-classical baseline. Everything runs on PennyLane ``default.qubit`` (statevector,
+unlike the calm training regime. Classical baselines: a numpy-SVD PCA
+reconstructor (linear) and a small autograd-trained neural autoencoder
+(nonlinear). Everything runs on PennyLane ``default.qubit`` (statevector,
 fully simulable).
 """
 import numpy as np
+import autograd.numpy as anp
+from autograd import grad
 import pennylane as qml
 from pennylane import numpy as pnp
 
@@ -126,6 +129,62 @@ class PCAReconstructor:
     @property
     def n_params(self):
         return int(self.components_.size)
+
+
+class NeuralAutoencoder:
+    """Nonlinear classical baseline: a tiny MLP autoencoder
+    (n_inputs -> tanh(n_latent) -> n_inputs), trained on calm windows by
+    minimizing mean squared reconstruction error (autograd + Adam).
+    Score = reconstruction MSE. This is the fair nonlinear counterpart to the
+    quantum autoencoder; PCA is the linear one."""
+
+    def __init__(self, n_inputs=4, n_latent=2, seed=0):
+        self.n_inputs = n_inputs
+        self.n_latent = n_latent
+        rng = np.random.default_rng(seed)
+        scale = 1.0 / np.sqrt(n_inputs)
+        self.params = dict(
+            W1=rng.normal(0.0, scale, (n_latent, n_inputs)),
+            b1=np.zeros(n_latent),
+            W2=rng.normal(0.0, scale, (n_inputs, n_latent)),
+            b2=np.zeros(n_inputs),
+        )
+
+    @property
+    def n_params(self):
+        return int(sum(v.size for v in self.params.values()))
+
+    def _recon(self, params, x):
+        h = anp.tanh(params["W1"] @ x + params["b1"])
+        return params["W2"] @ h + params["b2"]
+
+    def _loss(self, params, X):
+        errs = anp.array([anp.sum((x - self._recon(params, x)) ** 2) for x in X])
+        return anp.mean(errs)
+
+    def fit(self, windows, steps=300, lr=0.05):
+        """Adam on mean squared reconstruction error. Returns the loss history."""
+        X = np.asarray(windows, dtype=float)
+        gradient = grad(self._loss)
+        m = {k: np.zeros_like(v) for k, v in self.params.items()}
+        v = {k: np.zeros_like(val) for k, val in self.params.items()}
+        b1, b2, eps = 0.9, 0.999, 1e-8
+        history = []
+        for t in range(1, steps + 1):
+            g = gradient(self.params, X)
+            for k in self.params:
+                m[k] = b1 * m[k] + (1 - b1) * g[k]
+                v[k] = b2 * v[k] + (1 - b2) * g[k] ** 2
+                mhat = m[k] / (1 - b1 ** t)
+                vhat = v[k] / (1 - b2 ** t)
+                self.params[k] = self.params[k] - lr * mhat / (np.sqrt(vhat) + eps)
+            history.append(float(self._loss(self.params, X)))
+        return self
+
+    def score(self, window):
+        x = np.asarray(window, dtype=float)
+        r = self._recon(self.params, x)
+        return float(np.sum((x - r) ** 2))
 
 
 # ---------------------------------------------------------------------------

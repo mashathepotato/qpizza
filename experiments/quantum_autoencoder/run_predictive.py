@@ -97,28 +97,33 @@ def main():
     pca = qa.PCAReconstructor(n_components=N_LATENT).fit(Z[:n_train])
     p_scores = np.array([pca.score(z) for z in Z])
 
+    nae = qa.NeuralAutoencoder(n_inputs=K, n_latent=N_LATENT, seed=SEED)
+    nae.fit(Z[:n_train], steps=400, lr=0.05)
+    nn_scores = np.array([nae.score(z) for z in Z])
+
     energy = (Z ** 2).sum(axis=1)                     # trivial magnitude baseline
 
     ev = dict(
         auc_q=qa.roc_auc(q_scores[test], labels[test]),
         auc_p=qa.roc_auc(p_scores[test], labels[test]),
+        auc_n=qa.roc_auc(nn_scores[test], labels[test]),
         auc_e=qa.roc_auc(energy[test], labels[test]),
-        n_qae=model.n_params, n_pca=pca.n_params,
+        n_qae=model.n_params, n_pca=pca.n_params, n_nae=nae.n_params,
     )
     print(f"provenance     : {provenance}")
     print(f"windows        : {n} (train {n_train} / test {n - n_train}), k={K}")
     print(f"next-day events: {int(labels.sum())} ({100 * labels.mean():.0f}%), "
           f"|ret| >= {thresh:.4f}")
     print(f"held-out AUC   : QAE={ev['auc_q']:.3f}  PCA={ev['auc_p']:.3f}  "
-          f"energy={ev['auc_e']:.3f}")
-    print("verdict        : models cluster ~0.65; quantum does NOT beat classical "
-          "(no advantage for prediction).")
+          f"neuralAE={ev['auc_n']:.3f}  energy={ev['auc_e']:.3f}")
+    print("verdict        : models cluster ~0.65; quantum does NOT beat the classical "
+          "autoencoder/PCA (no advantage for prediction).")
 
-    _plot(prices, end_day, q_scores, p_scores, labels, n_train, ev, provenance)
+    _plot(prices, end_day, q_scores, p_scores, nn_scores, labels, n_train, ev, provenance)
     print(f"saved {OUT}")
 
 
-def _plot(prices, end_day, q_scores, p_scores, labels, n_train, ev, provenance):
+def _plot(prices, end_day, q_scores, p_scores, nn_scores, labels, n_train, ev, provenance):
     P = _PALETTE
     fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(11, 7), sharex=True,
                                    gridspec_kw=dict(height_ratios=[1.0, 1.0]))
@@ -142,18 +147,21 @@ def _plot(prices, end_day, q_scores, p_scores, labels, n_train, ev, provenance):
         lo, hi = x.min(), x.max()
         return (x - lo) / (hi - lo) if hi > lo else x * 0.0
     ax1.plot(end_day, nrm(q_scores), color=P["quantum"], lw=1.4,
-             label=f"QAE infidelity  (AUC {ev['auc_q']:.2f}, {ev['n_qae']} params)")
+             label=f"QAE infidelity (AUC {ev['auc_q']:.2f}, {ev['n_qae']} params)")
     ax1.plot(end_day, nrm(p_scores), color=P["classical"], lw=1.4,
-             label=f"PCA-2 recon error (AUC {ev['auc_p']:.2f}, {ev['n_pca']} params)")
+             label=f"PCA-2 recon (AUC {ev['auc_p']:.2f}, {ev['n_pca']} params)")
+    ax1.plot(end_day, nrm(nn_scores), color=P["accent"], lw=1.3, ls="--",
+             label=f"neural AE recon (AUC {ev['auc_n']:.2f}, {ev['n_nae']} params)")
     ax1.axvline(split, color=P["muted"], ls="--", lw=1.0)
     ax1.set_ylabel("anomaly score (norm.)")
     ax1.set_xlabel("trading day")
     ax1.legend(loc="upper left", fontsize=9)
 
-    cap = ("Trained on calm-period 4-day return windows; score = 1 - P(trash=|00>). "
-           "Target = next-day top-decile |return| (NOT in the window), so a bare |return| "
-           "detector cannot cheat. Held-out AUC clusters ~0.65 for all models -- only "
-           "volatility-clustering signal, and the quantum model does NOT beat classical PCA. "
+    cap = ("Trained on calm-period 4-day return windows; score = reconstruction error "
+           "(QAE: 1 - P(trash=|00>); AEs: residual). Target = next-day top-decile |return| "
+           "(NOT in the window), so a bare |return| detector cannot cheat. Held-out AUC "
+           "clusters ~0.65 for all models -- only volatility-clustering signal, and the "
+           "quantum model does NOT beat the classical neural autoencoder or PCA. "
            f"Energy baseline AUC {ev['auc_e']:.2f}. Honest parity/negative result.")
     if _HAVE_STYLE:
         style.caption(fig, cap)
