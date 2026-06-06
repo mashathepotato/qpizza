@@ -19,21 +19,25 @@ from quantum_pricer.data import nokia_price_series
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
+AXIS_LABEL_CONVERGENCE = "oracle queries / samples (resource spent, NOT wall-clock)"
+
 
 def build_convergence(S0, K, r, sigma, T, M=5, seeds=6):
     """error_vs_queries_rms -> {ground_truth, M, axis_label, series, slopes, notes}."""
     rows = benchmark.error_vs_queries_rms(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
                                           seeds=seeds)
+    # ground truth recomputed here (error_vs_queries_rms uses it internally but does not return it)
     gt = tree.exact_tree_price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M)
     series, notes, slopes = {}, {}, {}
+    # only these two methods feed the frontend convergence plot; QSVT is intentionally excluded (it carries a query-independent approximation floor, not a descent)
     for method in ("classical_mc", "qae"):
-        pts = [dict(x=float(rw["budget_x"]), y=float(rw["rms_error"]))
-               for rw in rows if rw["method"] == method and rw["budget_x"] > 0
-               and np.isfinite(rw["rms_error"]) and rw["rms_error"] > 0]
+        pts = [dict(x=float(row["budget_x"]), y=float(row["rms_error"]))
+               for row in rows if row["method"] == method and row["budget_x"] > 0
+               and np.isfinite(row["rms_error"]) and row["rms_error"] > 0]
         pts.sort(key=lambda p: p["x"])
         series[method] = pts
-        notes[method] = sorted({rw.get("note", "") for rw in rows
-                                if rw["method"] == method} - {""})
+        notes[method] = sorted({row.get("note", "") for row in rows
+                                if row["method"] == method} - {""})
         if len(pts) >= 2:
             xs = np.log([p["x"] for p in pts])
             ys = np.log([p["y"] for p in pts])
@@ -41,5 +45,5 @@ def build_convergence(S0, K, r, sigma, T, M=5, seeds=6):
         else:
             slopes[method] = None
     return dict(ground_truth=gt, M=M,
-                axis_label="oracle queries / samples (resource spent, NOT wall-clock)",
+                axis_label=AXIS_LABEL_CONVERGENCE,
                 series=series, slopes=slopes, notes=notes)
