@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Madness of People Is Quantum — Pricing Race</title>
+<style>
+  :root{--bg:#0b1020;--ink:#eaf0ff;--muted:#9fb0d4;--line:#2a3760;
+        --quantum:#3ec98a;--classical:#9fb0d4;--sota:#c9603e;--qsvt:#9b6cff;--gt:#e0b341;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif}
+  #stage{height:100vh;display:flex;align-items:center;justify-content:center;padding:4vh 6vw}
+  .act{display:none;width:100%;max-width:1100px}
+  .act.live{display:block;animation:fade .5s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h1{font-size:34px;margin:0 0 6px;background:linear-gradient(135deg,#7c5cff,#23d5c8);
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
+  .cap{color:var(--muted);font-size:15px;max-width:760px}
+  .num{color:var(--gt);font-weight:700}
+  #nav{position:fixed;bottom:14px;left:0;right:0;text-align:center;color:var(--muted);font-size:13px}
+  #dots span{display:inline-block;width:9px;height:9px;border-radius:50%;
+    background:#33406a;margin:0 4px}
+  #dots span.on{background:var(--quantum)}
+  #notice{position:fixed;top:12px;left:12px;right:12px;background:#3a1f1f;color:#ffb4b4;
+    border:1px solid #6b2b2b;border-radius:8px;padding:10px 14px;font-size:13px;display:none}
+  #cockpit{display:none;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:1180px}
+  #cockpit.live{display:grid}
+  .panel{background:#141d3a;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  svg{width:100%;height:auto;overflow:visible}
+</style>
+</head>
+<body>
+<div id="notice"></div>
+<div id="stage">
+  <section class="act" data-act="0"></section>
+  <section class="act" data-act="1"></section>
+  <section class="act" data-act="2"></section>
+  <section class="act" data-act="3"></section>
+  <section class="act" data-act="4"></section>
+  <div id="cockpit"></div>
+</div>
+<div id="nav"><span id="dots"></span><div>← → / space to move · press <b>E</b> for explore cockpit</div></div>
+
+<script>
+const DATA = {};            // filled by loadData(); render functions read from here
+let ACT = 0, COCKPIT = false;
+const ACTS = document.querySelectorAll('.act');
+const RENDERERS = [];       // RENDERERS[i] draws act i; added in later tasks
+
+async function getJSON(name){
+  try{ const r = await fetch(name); if(!r.ok) throw 0; return await r.json(); }
+  catch(e){ return null; }
+}
+async function loadData(){
+  const [results, prices, conv, hw] = await Promise.all(
+    ['results.json','prices.json','convergence.json','hardware.json'].map(getJSON));
+  Object.assign(DATA, {results, prices, conv, hw});
+  const missing = [];
+  if(!prices) missing.push('prices.json');
+  if(!conv) missing.push('convergence.json');
+  if(missing.length){
+    const n = document.getElementById('notice');
+    n.style.display='block';
+    n.textContent = 'Data not exported yet — run  python -m results.export_demo_data  '
+                  + '(missing: '+missing.join(', ')+'). Showing what is available.';
+  }
+}
+function renderDots(){
+  const d = document.getElementById('dots'); d.innerHTML='';
+  ACTS.forEach((_,i)=>{ const s=document.createElement('span');
+    if(i===ACT && !COCKPIT) s.className='on'; d.appendChild(s); });
+}
+function show(){
+  document.getElementById('cockpit').classList.toggle('live', COCKPIT);
+  ACTS.forEach((el,i)=>el.classList.toggle('live', !COCKPIT && i===ACT));
+  if(!COCKPIT && RENDERERS[ACT]) RENDERERS[ACT](ACTS[ACT]);
+  if(COCKPIT && typeof renderCockpit==='function') renderCockpit(document.getElementById('cockpit'));
+  renderDots();
+}
+document.addEventListener('keydown', e=>{
+  const k = e.key.toLowerCase();
+  if(k==='e'){ COCKPIT=!COCKPIT; show(); return; }
+  if(COCKPIT) return;
+  if(e.key==='ArrowRight'||e.key===' '){ ACT=Math.min(ACT+1, ACTS.length-1); show(); }
+  if(e.key==='ArrowLeft'){ ACT=Math.max(ACT-1, 0); show(); }
+});
+loadData().then(show);
+</script>
+</body>
+</html>
