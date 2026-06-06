@@ -9,6 +9,8 @@ Junction Helsinki × OP Pohjola hackathon — **Quantum Computing for Finance**.
 > oracle. The quantum-cognition "investor" (a quantum model beating a classical one on a real
 > behavioral effect) is the motivation that justifies the lens.
 
+> **Results dashboard:** `python -m results.build_dashboard` → open [`results/index.html`](./results) for all figures + headline numbers (cognition, pricer, triage) in one self-contained page.
+
 ## Where to look
 - **[`AGENTS.md`](./AGENTS.md)** — brief for agents/teammates (start here if you're an AI agent).
 - **[`context/VISION.md`](./context/VISION.md)** — single source of truth: pitch, science, build
