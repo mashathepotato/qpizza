@@ -20,9 +20,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from results import style
 from quantum_pricer.benchmark import error_vs_queries_rms
 
-# Nokia (NOKIA.HE) ATM European call -- same instrument as demo.py (fixed here for
-# reproducibility / no network). See README for provenance.
-PARAMS = dict(S0=13.09, K=13.09, r=0.03, sigma=0.479, T=1.0, M=5)
+# Nokia (NOKIA.HE) ATM European call -- pinned asof 2025-06-05 (look-ahead-free).
+from quantum_pricer.data import nokia_params as _np
+_p, _ = _np(allow_network=False)
+_S0 = _p["S0"]
+PARAMS = dict(S0=_S0, K=round(_S0, 2), r=_p["r"], sigma=_p["sigma"], T=1.0, M=4)
 OUT = os.path.join(os.path.dirname(__file__), "figures", "error_vs_queries.png")
 
 

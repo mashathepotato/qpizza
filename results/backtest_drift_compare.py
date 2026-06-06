@@ -32,8 +32,14 @@ OUT = os.path.join(os.path.dirname(__file__), "figures", "backtest_drift_compare
 
 
 def fetch():
-    import yfinance as yf
-    return np.asarray(yf.Ticker("NOKIA.HE").history(period="1y")["Close"].dropna().values, float)
+    """Return calibration-window closes from pinned CSV (2024-06-05 to 2025-06-05).
+    Strictly look-ahead-free: no data after asof enters the backtest."""
+    import csv as _csv
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "quantum_pricer", "market_data", "NOKIA_HE.csv")
+    rows = [r for r in _csv.DictReader(open(path))
+            if "2024-06-05" <= r["date"] <= "2025-06-05"]
+    return np.asarray([float(r["close"]) for r in rows], float)
 
 
 def binom_pmf(i, q):
@@ -101,8 +107,8 @@ def main():
     emax = max(np.abs(rn["err"]).max(), np.abs(rw["err"]).max(),
                rn["hi"][0] - rn["lo"][0]) * 1.1
 
-    for col, (mode, lab) in enumerate([(rn, "Risk-neutral drift (r = 3%)  --  the pricing measure"),
-                                       (rw, "Real-world drift (mu_hat per window)  --  predictive")]):
+    for col, (mode, lab) in enumerate([(rn, "Risk-neutral drift (r = 3%)  [Q-measure, NOT a forecast]"),
+                                       (rw, "Real-world drift (mu_hat per window)  [P-measure, noisy]")]):
         axP, axE = axes[0][col], axes[1][col]
         axP.plot(days[CAL:], prices[CAL:], color=style.PALETTE["ink"], lw=1.7, zorder=5,
                  label="realized (ground truth)")
@@ -133,14 +139,15 @@ def main():
         axE.set_title("Forecast error over time", fontsize=10)
         axE.legend(loc="lower left", fontsize=8)
 
-    fig.suptitle("Rolling price prediction (NOKIA.HE underlying, 30 days ahead): "
-                 "risk-neutral vs real-world drift", fontsize=13, fontweight="bold")
-    style.caption(fig, "Left (risk-neutral, the pricing measure): flat-centred cone under-shoots "
-                       "the rally -> large negative error. Right (real-world mu_hat): the cone "
-                       "chases the trend, smaller error in trending stretches but mu_hat is noisy "
-                       "and overshoots on reversals. Same M=8 sliding-window setup; underlying "
-                       "forecast is route-independent.")
-    style.provenance(fig, "quantum_pricer/tree.py (CRR); NOKIA.HE 1y daily (yfinance)")
+    fig.suptitle("Q-measure vs P-measure pricing cone - NOKIA.HE "
+                 "(pinned 2024-06-05→2025-06-05, M=8)", fontsize=13, fontweight="bold")
+    style.caption(fig, "Left (risk-neutral Q, the pricing measure): E_Q[S_t]=S0·e^{rt} ≈ S0. "
+                       "Not a forecast — drift r is imposed by no-arbitrage. Right (real-world P, "
+                       "mu_hat per window): better tracks trends but mu_hat is noisy and overshoots "
+                       "on reversals. Neither is a stock-price prediction; both are correct pricing "
+                       "measures for their respective purposes. Cone error is a property of the "
+                       "measure, not of the quantum algorithms.")
+    style.provenance(fig, "quantum_pricer/tree.py (CRR); NOKIA.HE pinned CSV 2024-06-05→2025-06-05")
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     fig.savefig(OUT)

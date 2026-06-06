@@ -31,8 +31,14 @@ FIG_OUT = os.path.join(os.path.dirname(__file__), "figures", "backtest_routes_ti
 
 
 def fetch():
-    import yfinance as yf
-    return np.asarray(yf.Ticker("NOKIA.HE").history(period="1y")["Close"].dropna().values, float)
+    """Return calibration-window closes from pinned CSV (2024-06-05 to 2025-06-05).
+    Strictly look-ahead-free: no data after asof enters the backtest."""
+    import csv as _csv
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "quantum_pricer", "market_data", "NOKIA_HE.csv")
+    rows = [r for r in _csv.DictReader(open(path))
+            if "2024-06-05" <= r["date"] <= "2025-06-05"]
+    return np.asarray([float(r["close"]) for r in rows], float)
 
 
 def main():
@@ -116,9 +122,10 @@ def main():
     fig.suptitle("Full backtest verification - all 4 routes priced on all "
                  f"{len(rows)} windows (M=8)", fontsize=13, fontweight="bold")
     style.caption(fig, "Every point is a genuine model execution (no analytic shortcut). "
-                       "Fourier is statevector-exact; QAE ~1e-3 (eps target); QSVT ~1% "
-                       "(straddle approx floor); MC ~1e-3 (sampling).")
-    style.provenance(fig, "quantum_pricer routes on NOKIA.HE 1y daily; full sliding-window sweep")
+                       "Fourier is statevector-exact (~1e-8); QAE ~1e-5 (eps target); "
+                       "QSVT ~1-3% (straddle polynomial floor, degree-40 design constant); "
+                       "MC ~1e-3 (sampling noise). Pinned CSV: 2024-06-05→2025-06-05.")
+    style.provenance(fig, "quantum_pricer routes on NOKIA.HE pinned CSV; full sliding-window sweep")
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])
     os.makedirs(os.path.dirname(FIG_OUT), exist_ok=True)
     fig.savefig(FIG_OUT)

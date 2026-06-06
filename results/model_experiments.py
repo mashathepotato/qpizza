@@ -20,10 +20,13 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from results import style
 
-# NOKIA.HE ATM European call - fixed for reproducibility / no network (matches demo.py).
-P = dict(S0=13.09, K=13.09, r=0.03, sigma=0.479, T=1.0)
-M_PRICE = 3      # price routes (fast, exact-simulable)
-M_BENCH = 4      # resource transpile depth (matches demo)
+# NOKIA.HE ATM European call - pinned asof 2025-06-05 (look-ahead-free).
+from quantum_pricer.data import nokia_params as _np
+_p, _meta = _np(allow_network=False)
+_S0 = _p["S0"]; _sigma = _p["sigma"]; _r = _p["r"]
+P = dict(S0=_S0, K=round(_S0, 2), r=_r, sigma=_sigma, T=1.0)
+M_PRICE = 4      # consistent with make_results.py M_PRICE
+M_BENCH = 4      # resource transpile depth
 N_MC = 100_000
 OUT = os.path.join(os.path.dirname(__file__), "figures", "model_results.png")
 

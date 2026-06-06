@@ -43,8 +43,14 @@ OUT = os.path.join(os.path.dirname(__file__), "figures", "backtest_rolling.png")
 
 
 def fetch_prices():
-    import yfinance as yf
-    return np.asarray(yf.Ticker("NOKIA.HE").history(period="1y")["Close"].dropna().values, float)
+    """Return calibration-window closes from pinned CSV (2024-06-05 to 2025-06-05).
+    Strictly look-ahead-free: no data after asof enters the backtest."""
+    import csv as _csv
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "quantum_pricer", "market_data", "NOKIA_HE.csv")
+    rows = [r for r in _csv.DictReader(open(path))
+            if "2024-06-05" <= r["date"] <= "2025-06-05"]
+    return np.asarray([float(r["close"]) for r in rows], float)
 
 
 def binom_pmf(i, q):
@@ -166,9 +172,9 @@ def main():
              label="predicted price E[S_t]  (all 4 routes share this)")
     axP.plot(dmc, mc, color=style.PALETTE["classical"], lw=1.4, ls="--", zorder=3,
              label="Monte-Carlo mean path")
-    axP.set_ylabel("NOKIA.HE price  [EUR]")
-    axP.set_title("PREDICTING: the underlying NOKIA.HE price 30 trading days ahead "
-                  "(rolling sliding windows, stride 1, M=8)")
+    axP.set_ylabel("NOKIA.HE price  [EUR]  (Q-measure cone ≠ forecast)")
+    axP.set_title("Risk-neutral pricing distribution (NOT a forecast): "
+                  "E_Q[S_t] = S0·e^{rt} ≈ S0  (rolling windows, stride 1, M=8)")
     mae_txt = ", ".join(f"{k} {v:.1e}" for k, v in mae.items())
     axP.text(0.99, 0.03,
              f"price-forecast MAE={mae_fc:.2f} EUR  |  cone coverage {coverage:.0f}%  |  "
@@ -189,14 +195,14 @@ def main():
     axE.set_title("Forecast error over time (predicted price - realized price)")
     axE.legend(loc="lower left", fontsize=9)
 
-    fig.suptitle("Rolling price-prediction backtest - NOKIA.HE underlying price "
-                 "(not the option price)", fontsize=13, fontweight="bold")
-    style.caption(fig, "Top: the model PREDICTS the underlying stock price 30 days ahead; "
-                       "black = realized. Bottom: forecast error vs time. Negative error = the "
-                       "risk-neutral forecast under-shoots the realized uptrend (momentum it "
-                       "cannot know). The 4 routes differ only in OPTION price (inset MAE), not "
-                       "in this underlying forecast.")
-    style.provenance(fig, "quantum_pricer; NOKIA.HE 1y daily (yfinance); risk-neutral drift")
+    fig.suptitle("Algorithm verification backtest - NOKIA.HE (pinned 2024-06-05 to 2025-06-05)",
+                 fontsize=13, fontweight="bold")
+    style.caption(fig, "Top: the cone is the RISK-NEUTRAL pricing distribution E_Q[S_t]=S0·e^{rt} — "
+                       "NOT a stock-price forecast. Under Q the drift is r by construction, so any "
+                       "real-world trend shows as error; this is expected and correct. "
+                       "The validated claim (inset MAE) is that all 4 routes price the ATM call "
+                       "consistently with the exact tree across all windows.")
+    style.provenance(fig, "quantum_pricer; NOKIA.HE pinned CSV 2024-06-05→2025-06-05; risk-neutral measure")
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     fig.savefig(OUT)

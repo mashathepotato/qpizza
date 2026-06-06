@@ -25,8 +25,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from results import style
 from quantum_pricer.tree import crr_params
 
-# NOKIA.HE ATM call - fixed for reproducibility (latest close / realized vol), no network.
-S0, K, r, sigma, T = 13.09, 13.09, 0.03, 0.479, 1.0
+# NOKIA.HE ATM call - pinned asof 2025-06-05 (look-ahead-free).
+from quantum_pricer.data import nokia_params as _np
+_p, _ = _np(allow_network=False)
+S0, K, r, sigma, T = _p["S0"], round(_p["S0"], 2), _p["r"], _p["sigma"], 1.0
 M = 52                       # weekly steps over the 1-year horizon (viz resolution)
 N_PATHS = 14                 # illustrative sampled trajectories
 OUT = os.path.join(os.path.dirname(__file__), "figures", "price_forecast.png")

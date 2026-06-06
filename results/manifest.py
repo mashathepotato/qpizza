@@ -65,25 +65,22 @@ TRACKS = [
                                          "O(1/eps^2). No wall-clock speedup over MC is claimed; the "
                                          "win is loading depth + asymptotic query scaling."),
             "price_forecast.png": ("What we price: from today's NOKIA.HE spot "
-                                   "S0=13.09 EUR, the CRR risk-neutral tree predicts the "
+                                   "S0=4.60 EUR (pinned asof 2025-06-05). The CRR risk-neutral tree gives the "
                                    "price distribution over the 1-year horizon (E[S_T]=13.49, "
                                    "forward). The terminal distribution is what the call is priced on."),
-            "backtest_rolling.png": ("PREDICTION TARGET = the underlying NOKIA.HE price 30 trading "
-                                     "days ahead (NOT the option price). Sliding 60-day windows "
-                                     "(stride 1), each calibrated on its first 30 days; every future "
-                                     "day is forecast by up to 30 overlapping windows, averaged. "
-                                     "Top: predicted price + 5-95% range vs realized (black). Bottom: "
-                                     "forecast error (predicted - realized) over time - negative "
-                                     "because the risk-neutral forecast under-shoots the realized "
-                                     "uptrend. The 4 routes differ only in OPTION price, not this "
-                                     "underlying forecast."),
+            "backtest_rolling.png": ("Algorithm verification over 191 sliding windows (pinned "
+                                     "2024-06-05→2025-06-05). The cone is the RISK-NEUTRAL "
+                                     "Q-measure distribution E_Q[S_t]=S0·e^(rt) — not a stock-price "
+                                     "forecast; drift r is imposed by no-arbitrage. Cone coverage 93%. "
+                                     "Inset MAE: all 4 routes agree with the exact tree across all "
+                                     "191 windows — this is the validated claim."),
             "backtest_drift_compare.png": ("Drift choice, side by side (underlying-price prediction). "
                                            "Left = risk-neutral drift r (the pricing measure): flat-"
                                            "centred cone under-shoots the rally, error dives negative "
-                                           "(MAE 0.93 EUR, 67% coverage). Right = real-world mu_hat "
+                                           "(MAE 0.18 EUR, coverage 93%). Right = real-world mu_hat "
                                            "estimated per window: the cone chases the trend, lower "
                                            "error (MAE 0.74) but noisier and overshoots reversals "
-                                           "(57% coverage). Honest tradeoff; M=8 sliding windows."),
+                                           "(87% coverage). Neither is a stock-price prediction; cone error is a property of the measure."),
             "backtest_routes_timeseries.png": ("Full verification: an ATM call priced on EVERY "
                                                "one of the 192 sliding windows with all four routes "
                                                "(real circuit runs, no analytic shortcut). Top: price "
@@ -99,18 +96,18 @@ TRACKS = [
                                          "stock rides its upper edge. Bottom: all four routes "
                                          "reproduce the exact-tree option price each chunk."),
             "model_results.png": ("Actual run of all four routes: each recovers the "
-                                  "exact-tree price (M=3); right panel is the real "
+                                  "exact-tree price (M=4, pinned S0=4.60); right panel is the real "
                                   "transpiled IQM CZ depth + qubits. QAE is shallowest "
                                   "(~16 CZ); QSVT is the deep, honest straddle route."),
             "error_vs_queries.png": ("Estimation error vs oracle queries (cf. "
-                                     "Stamatopoulos 2020, Fig. 11): AE slope -0.80 vs "
-                                     "MC -0.58. Honest: AE is under the ideal -1.0 due "
+                                     "Stamatopoulos 2020, Fig. 11): AE slope -0.84 vs "
+                                     "MC -0.57. Honest: AE is under the ideal -1.0 due "
                                      "to small-M finite-shot saturation; queries != samples."),
             "complexity.png": ("Query complexity to reach accuracy eps: MC O(1/eps^2) vs "
                                "QAE O(1/eps) - the textbook quadratic separation (analytic "
                                "theory curves; cite Montanaro 2015)."),
-            "speedup.png": ("Seed-averaged empirical RMS error vs queries: QAE ~ -0.80, "
-                            "MC ~ -0.58 - the measured counterpart to the complexity plot."),
+            "speedup.png": ("Seed-averaged empirical RMS error vs queries (pinned params, M=4): QAE -0.84, "
+                            "MC -0.57. IAE plateau at low budgets is a real simulator artifact, not hidden."),
             "depth_crossover.png": ("Novelty: Hamming-weight poly(M) phase oracle vs naive "
                                     "2^M CZ depth. Naive infeasible from M~14; Hamming prices "
                                     "M=14 to 3e-4 error on 19 qubits. The strongest result."),

@@ -41,9 +41,14 @@ OUT = os.path.join(os.path.dirname(__file__), "figures", "backtest_walkforward.p
 
 
 def fetch_prices():
-    import yfinance as yf
-    h = yf.Ticker("NOKIA.HE").history(period="1y")["Close"].dropna()
-    return np.asarray(h.values, float)
+    """Return calibration-window closes from pinned CSV (2024-06-05 to 2025-06-05).
+    Strictly look-ahead-free: no data after asof enters the backtest."""
+    import csv as _csv
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "quantum_pricer", "market_data", "NOKIA_HE.csv")
+    rows = [r for r in _csv.DictReader(open(path))
+            if "2024-06-05" <= r["date"] <= "2025-06-05"]
+    return np.asarray([float(r["close"]) for r in rows], float)
 
 
 def binom_pmf(i, q):
@@ -154,8 +159,7 @@ def main():
               f"routes={ {k: round(v,4) for k,v in routes.items()} }")
 
     axP.set_ylabel("NOKIA.HE price  [EUR]")
-    axP.set_title("Walk-forward backtest: 30-day calibrate -> 30-day forecast (M=8 steps) "
-                  "vs realized price")
+    axP.set_title("Walk-forward: risk-neutral Q-measure cone (NOT a forecast) vs realized price")
     axP.set_xlabel("trading day")
     axP.legend(loc="upper left", fontsize=9)
     axP.text(0.99, 0.02, "shaded = calibration window", transform=axP.transAxes,
@@ -175,13 +179,14 @@ def main():
     axO.set_title("Option price per chunk: all four routes vs exact tree (ground truth)")
     axO.legend(ncol=5, fontsize=8.5, loc="upper right")
 
-    fig.suptitle("Quantum option pricer - walk-forward backtest on NOKIA.HE "
-                 "(M=8, 30d->30d, ~3.75 trading days/step)",
+    fig.suptitle("Quantum option pricer - algorithm verification across market conditions "
+                 "(NOKIA.HE pinned 2024-06-05→2025-06-05, M=8)",
                  fontsize=13, fontweight="bold")
-    style.caption(fig, "Top: each 30-day forecast cone is calibrated on the prior 30 days "
-                       "(shaded); realized price (black) is the ground truth. "
-                       "Bottom: every route reproduces the exact-tree option price each chunk.")
-    style.provenance(fig, "quantum_pricer routes; NOKIA.HE 1y daily (yfinance); "
+    style.caption(fig, "Top: shaded = calibration window; cone = risk-neutral Q-measure distribution "
+                       "(NOT a forecast — drift is r by pricing-measure construction). "
+                       "Bottom: every route reproduces the exact-tree option price each chunk; "
+                       "this agreement across diverse S0/sigma conditions IS the validated claim.")
+    style.provenance(fig, "quantum_pricer routes; NOKIA.HE pinned CSV 2024-06-05→2025-06-05; "
                           f"drift={'real-world mu' if _USE_REALWORLD_DRIFT else 'risk-neutral r'}")
     fig.tight_layout(rect=[0, 0.02, 1, 0.96])
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
