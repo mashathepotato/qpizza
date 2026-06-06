@@ -12,12 +12,17 @@ from sklearn.metrics import roc_auc_score
 
 from backends import get_backend
 from triage.rubric import AdvantageRecord
-from triage.data.fraud import prepare_features, make_synthetic_fraud
+from triage.data.fraud import prepare_features, make_synthetic_fraud, scale_for_embedding
 from triage.baselines.classical_kernel import rbf_svm_auc
 
 
 def _kernel_matrix(A, B, n_features):
-    """Fidelity quantum kernel via an angle-embedding feature map (default.qubit)."""
+    """Fidelity quantum kernel via an angle-embedding feature map (default.qubit).
+
+    Inputs A and B must already be scaled into [0, pi] per feature to avoid
+    rotation aliasing (angles outside [0, pi] wrap mod 2*pi, making distant
+    points indistinguishable from nearby ones).
+    """
     dev = qml.device("default.qubit", wires=n_features)
 
     @qml.qnode(dev)
@@ -35,8 +40,14 @@ def quantum_kernel_auc(X, y, backend="local_aer", seed: int = 0) -> float:
     Xtr, Xte, ytr, yte = train_test_split(
         X, np.asarray(y), test_size=0.3, random_state=seed, stratify=y
     )
-    Ktr = _kernel_matrix(Xtr, Xtr, nf)
-    Kte = _kernel_matrix(Xte, Xtr, nf)
+    # Scale features into [0, pi] per feature, fitting only on the training split
+    # to avoid test leakage.  This is required to make AngleEmbedding well-defined:
+    # raw standardized values can reach +-3, causing rotation aliasing (cos(x+2*pi)
+    # == cos(x)) that conflates geometrically distant points.
+    scaler, Xtr_scaled = scale_for_embedding(Xtr)
+    Xte_scaled = scaler.transform(Xte)
+    Ktr = _kernel_matrix(Xtr_scaled, Xtr_scaled, nf)
+    Kte = _kernel_matrix(Xte_scaled, Xtr_scaled, nf)
     clf = SVC(kernel="precomputed", probability=True, random_state=seed).fit(Ktr, ytr)
     proba = clf.predict_proba(Kte)[:, 1]
     return float(roc_auc_score(yte, proba))
@@ -62,11 +73,19 @@ def run(config: dict) -> AdvantageRecord:
     n = int(config.get("n", 120))
     nf = int(config.get("n_features", 4))
     seed = int(config.get("seed", 0))
-    try:
-        from triage.data.fraud import load_ulb
-        X, y = load_ulb(n=n, n_features=nf, seed=seed)
-    except Exception:
-        X, y = make_synthetic_fraud(n=n, n_features=nf, seed=seed)
+    dataset = config.get("dataset", "synthetic")
+
+    if dataset == "hard":
+        from triage.data.fraud import make_hard_fraud
+        X, y = make_hard_fraud(n=n, n_features=nf, seed=seed)
+    else:
+        # Default: try real ULB data, fall back to synthetic
+        try:
+            from triage.data.fraud import load_ulb
+            X, y = load_ulb(n=n, n_features=nf, seed=seed)
+        except Exception:
+            X, y = make_synthetic_fraud(n=n, n_features=nf, seed=seed)
+
     q_auc = quantum_kernel_auc(X, y, config.get("backend", "local_aer"), seed)
     c_auc = rbf_svm_auc(X, y, seed)
     if q_auc > c_auc + 0.02:
@@ -85,6 +104,6 @@ def run(config: dict) -> AdvantageRecord:
         sim_runnable=True, q50_faithful_runnable=_q50_faithful(nf),
         demo_naturalness=0.95,
         op_business_fit=0.95,
-        notes=f"n={n}, n_features={nf}, quantum-kernel vs RBF-SVM AUC",
+        notes=f"n={n}, n_features={nf}, dataset={dataset}, quantum-kernel vs RBF-SVM AUC",
         sweep_value=float(nf), sweep_label="n_features",
     )

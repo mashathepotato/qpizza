@@ -33,3 +33,4 @@ all:
     - {config_id: d_f4, candidate: D, n: 150, n_features: 4, backend: local_aer, seed: 0}
     - {config_id: d_f6, candidate: D, n: 150, n_features: 6, backend: local_aer, seed: 0}
     - {config_id: d_f8, candidate: D, n: 200, n_features: 8, backend: local_aer, seed: 1}
+    - {config_id: d_hard_f4, candidate: D, n: 200, n_features: 4, dataset: hard, backend: local_aer, seed: 0}
