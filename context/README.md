@@ -3,6 +3,12 @@
 Shared reference for our team (2 CS + 2 physics). Goal: a creative, end-to-end,
 **quantum-native** PoC that wins.
 
+> ## ✅ DECISION LOCKED → **["The Madness of People Is Quantum"](./VISION.md)**
+> We model investor irrationality as quantum probability (quantum cognition). **Read
+> [`VISION.md`](./VISION.md) first** — it's the single source of truth (pitch, science, build
+> status, task board). Working code is in [`/quantum_investor`](../quantum_investor) and already
+> runs. Files below are the research trail that led here.
+
 ## Files
 - [`challenge.md`](./challenge.md) — the official challenge, judging criteria, prizes, stakes.
 - [`strategy.md`](./strategy.md) — how we win: scoring, the originality trap, team roles, demo
