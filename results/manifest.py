@@ -51,6 +51,7 @@ TRACKS = [
             _p("results", "figures", "backtest_walkforward.png"),
             _p("results", "figures", "model_results.png"),
             _p("results", "figures", "error_vs_queries.png"),
+            _p("results", "figures", "speedup_compare.png"),
             _p("quantum_pricer", "complexity.png"),
             _p("quantum_pricer", "speedup.png"),
             _p("quantum_pricer", "depth_crossover.png"),
@@ -106,6 +107,13 @@ TRACKS = [
                                      "Stamatopoulos 2020, Fig. 11): AE slope -0.80 vs "
                                      "MC -0.58. Honest: AE is under the ideal -1.0 due "
                                      "to small-M finite-shot saturation; queries != samples."),
+            "speedup_compare.png": ("Head-to-head empirical speedup: estimation error vs oracle "
+                                    "queries/samples for Monte Carlo, the Greek-paper SOTA oracle-QAE "
+                                    "(Stamatopoulos), and our QNDM-QAE + QSVT. Our QNDM-QAE hits the "
+                                    "ideal quantum slope (-0.99) and the lowest error; the Greek SOTA "
+                                    "floors high (~0.2) at its rescaling-linearisation bias; QSVT "
+                                    "floors at its polynomial-degree bias (~0.02); MC scales ~-0.5. "
+                                    "Finite shots, seed-averaged - all real runs."),
             "complexity.png": ("Query complexity to reach accuracy eps: MC O(1/eps^2) vs "
                                "QAE O(1/eps) - the textbook quadratic separation (analytic "
                                "theory curves; cite Montanaro 2015)."),
