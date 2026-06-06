@@ -86,4 +86,5 @@ def run(config: dict) -> AdvantageRecord:
         demo_naturalness=0.95,
         op_business_fit=0.95,
         notes=f"n={n}, n_features={nf}, quantum-kernel vs RBF-SVM AUC",
+        sweep_value=float(nf), sweep_label="n_features",
     )

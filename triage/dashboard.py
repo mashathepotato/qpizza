@@ -2,7 +2,9 @@
 base64 PNGs (no server, no external assets). Re-render after every config."""
 from __future__ import annotations
 import base64
+import collections
 import io
+import math
 from pathlib import Path
 
 import matplotlib
@@ -33,6 +35,31 @@ def _bar_png(rec: AdvantageRecord) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
+def _scaling_png(method_records) -> str | None:
+    """Log-log scaling curve over the swept axis, built from ALL of a method's
+    records. Returns base64 PNG, or None when there's nothing to plot (fewer
+    than 2 records, or every sweep_value is NaN)."""
+    recs = sorted(method_records, key=lambda r: r.sweep_value)
+    if len(recs) < 2 or all(math.isnan(r.sweep_value) for r in recs):
+        return None
+    xs = [r.sweep_value for r in recs]
+    q = [r.quantum_metric for r in recs]
+    c = [r.classical_metric for r in recs]
+    fig, ax = plt.subplots(figsize=(3.2, 2.4))
+    ax.loglog(xs, q, "o-", color="#4c72b0", label="quantum")
+    ax.loglog(xs, c, "s-", color="#999999", label="classical")
+    ax.set_xlabel(recs[0].sweep_label, fontsize=8)
+    ax.set_ylabel(recs[0].metric_name, fontsize=8)
+    ax.set_title(f"{recs[0].method}: quantum vs classical scaling", fontsize=8)
+    ax.legend(fontsize=7)
+    ax.grid(True, which="both", alpha=0.3)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=90)
+    plt.close(fig)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
 def _best_per_method(records):
     best = {}
     for r in records:
@@ -41,10 +68,21 @@ def _best_per_method(records):
     return best
 
 
-def _card(rec: AdvantageRecord) -> str:
+def _card(best_rec: AdvantageRecord, method_records) -> str:
+    rec = best_rec
     png = _bar_png(rec)
     badge = ("#2e7d32" if rec.q50_faithful_runnable else "#b71c1c")
     badge_txt = "Q50 ready" if rec.q50_faithful_runnable else "Q50 N/A"
+    scaling = _scaling_png(method_records)
+    if scaling:
+        scaling_html = (
+            f'<div style="margin-top:8px">'
+            f'<img src="data:image/png;base64,{scaling}"/>'
+            f'<div style="font-size:11px;color:#777">scaling across {rec.sweep_label}</div>'
+            f'</div>'
+        )
+    else:
+        scaling_html = ""
     return f"""
     <div style="border:1px solid #ddd;border-radius:10px;padding:14px;margin:10px;
                 width:320px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
@@ -59,6 +97,7 @@ def _card(rec: AdvantageRecord) -> str:
       <span style="font-size:12px;color:#555"> demo {rec.demo_naturalness:.2f} /
            OP {rec.op_business_fit:.2f}</span>
       <div><img src="data:image/png;base64,{png}" style="margin-top:8px"/></div>
+      {scaling_html}
     </div>"""
 
 
@@ -71,10 +110,13 @@ def render(records, plots_dir, out: Path, completed: int, total: int) -> None:
             "<body style='font-family:sans-serif'><h1>Triage</h1>"
             f"<p>Waiting for first result... {completed}/{total}</p></body></html>")
         return
+    by_method = collections.defaultdict(list)
+    for r in records:
+        by_method[r.method].append(r)
     best = _best_per_method(records)
     ranked = rank(list(best.values()))
     leader = ranked[0]
-    cards = "".join(_card(r) for r in ranked)
+    cards = "".join(_card(r, by_method[r.method]) for r in ranked)
     html = f"""<html><head>
       <meta http-equiv="refresh" content="30">
       <title>Quantum-finance triage</title></head>

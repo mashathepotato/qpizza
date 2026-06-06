@@ -164,4 +164,5 @@ def run(config: dict) -> AdvantageRecord:
         q50_faithful_runnable=_q50_faithful(n, k, reps, risk, seed),
         demo_naturalness=0.6, op_business_fit=0.8,
         notes=f"n={n}, k={k}, reps={reps}: QAOA portfolio vs brute-force optimum",
+        sweep_value=float(n), sweep_label="n_assets",
     )

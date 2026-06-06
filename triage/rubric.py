@@ -38,6 +38,8 @@ class AdvantageRecord:
     demo_naturalness: float      # 0..1 hand-set per method
     op_business_fit: float       # 0..1 hand-set per method
     notes: str
+    sweep_value: float = float("nan")   # the swept-axis value for this config (eps, n_assets, n_features)
+    sweep_label: str = ""               # axis name, e.g. "epsilon", "n_assets", "n_features"
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -197,4 +197,5 @@ def run(config: dict) -> AdvantageRecord:
             f"oracle-query count is MEASURED from a real shot-based IQAE run "
             f"(sum (2k+1)*shots over runtime Grover powers), not analytic 1/eps."
         ),
+        sweep_value=eps, sweep_label="epsilon",
     )
