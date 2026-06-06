@@ -31,6 +31,8 @@ import ar_baseline as ar
 from quantum_rnn import QRNN
 from quantum_gru import QGRU
 from quantum_lstm import QLSTM
+from classical_tf import TransformerClassifier
+from quantum_tf import QuantumTransformer
 try:
     from results import style
     _HAVE_STYLE = True
@@ -71,6 +73,8 @@ def main():
         ("QRNN", "quantum", QRNN),
         ("QGRU", "quantum", QGRU),
         ("QLSTM", "quantum", QLSTM),
+        ("Transformer", "classical", TransformerClassifier),
+        ("QTransformer", "quantum", QuantumTransformer),
     ]
     for name, fam, Cls in torch_models:
         aucs = []

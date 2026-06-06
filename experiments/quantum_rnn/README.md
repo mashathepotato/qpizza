@@ -18,6 +18,10 @@ Design spec: `docs/superpowers/specs/2026-06-06-quantum-recurrent-benchmark-desi
 - **Quantum recurrent** (PennyLane `default.qubit`, 4 qubits, data-reuploading VQC
   cells, Chen et al. 2020): `QRNN`, `QGRU`, `QLSTM`. Each gate is a small
   `StronglyEntanglingLayers` circuit reused across timesteps; fully simulable.
+- **Transformers**: a classical `Transformer` encoder (multi-head self-attention +
+  FFN, sinusoidal positional encoding) and a `QTransformer` — quantum self-attention
+  (QSANN, Li et al. 2022) whose Q/K/V projections are VQCs, with classical softmax
+  attention. Both mean-pool and use a linear head.
 - **Autoregressive baselines**: `GARCH(1,1)` (the textbook volatility-clustering
   model, `arch`) and `AR(p)` on `|returns|` (statsmodels).
 - **Floor baselines**: persistence (`|return|_t`) and logistic regression.
@@ -28,21 +32,26 @@ Design spec: `docs/superpowers/specs/2026-06-06-quantum-recurrent-benchmark-desi
 |---|---|---|---|
 | QLSTM | quantum | 0.647 ± 0.008 | 101 |
 | **GARCH(1,1)** | autoregressive | **0.639** | **4** |
-| LSTM | classical | 0.635 ± 0.009 | 361 |
+| LSTM | classical | 0.637 ± 0.010 | 361 |
+| QTransformer | quantum | 0.628 ± 0.009 | 85 |
 | QGRU | quantum | 0.625 ± 0.022 | 77 |
+| Transformer | classical | 0.621 ± 0.046 | 185 |
 | Persistence | floor | 0.620 | 0 |
 | AR(\|r\|,5) | autoregressive | 0.617 | 6 |
 | GRU | classical | 0.615 ± 0.004 | 273 |
 | QRNN | quantum | 0.612 ± 0.032 | 29 |
+| RNN | classical | 0.575 ± 0.024 | 97 |
 | Logistic | floor | 0.564 | 11 |
-| RNN | classical | 0.563 ± 0.027 | 97 |
 
 **Takeaways:**
 - **No model meaningfully beats GARCH(1,1)** — a 4-parameter classical model from
   1986. The best performer (QLSTM, 0.647) ties it within one standard deviation.
-- Everything clusters ~0.61–0.65, barely above the persistence floor (0.620). On
-  near-random-walk daily returns, only volatility clustering is learnable and a tiny
-  GARCH captures it as well as anything. Architecture barely matters.
+- Everything (recurrent, transformer, quantum, classical) clusters ~0.61–0.65,
+  barely above the persistence floor (0.620). On near-random-walk daily returns,
+  only volatility clustering is learnable and a tiny GARCH captures it as well as
+  anything. **Architecture barely matters** — including attention: the classical
+  Transformer is actually the *least stable* model (±0.046), over-parameterized for
+  120 training samples.
 - **Quantum is on par with classical, not ahead.** The quantum cells reach the
   cluster with far fewer parameters (29–101 vs 97–361) and no explicit
   regularization — a mild parameter-efficiency observation, not a predictive win.
@@ -59,12 +68,13 @@ before believing a surprising win) is part of the result.
 
 - `seqdata.py` — sequence/label construction (no leakage), z-scoring, `roc_auc`.
 - `classical_rnn.py` — `RNN/GRU/LSTMClassifier` + shared `train/scores/count_params`.
-- `qcell.py` — shared data-reuploading VQC gate (`make_gate_layer`).
+- `qcell.py` — shared VQC builders (`make_gate_layer` for recurrence, `make_token_layer` for attention Q/K/V).
 - `quantum_rnn.py`, `quantum_gru.py`, `quantum_lstm.py` — `QRNN/QGRU/QLSTM`.
+- `classical_tf.py`, `quantum_tf.py` — `TransformerClassifier`, `QuantumTransformer` (QSANN).
 - `ar_baseline.py` — `garch_forecast`, `ar_abs_forecast`.
 - `baselines.py` — persistence + logistic.
 - `run_rnn_bench.py` — the benchmark → `rnn_benchmark.png`.
-- `test_*.py` — 37 unit tests (harness, every cell, baselines).
+- `test_*.py` — 41 unit tests (harness, every recurrent + transformer cell, baselines).
 - `requirements.txt` — `torch`, `pennylane`, `arch`.
 
 ## Run
