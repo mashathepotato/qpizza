@@ -34,17 +34,20 @@ def _params():
 @app.get("/api/rerun/<route>")
 def rerun(route):
     p = _params()
-    gt = tree.exact_tree_price(**p)
     eps = float(request.args.get("eps", 0.05))
-    if route == "qae":
-        res = qae.price(epsilon_target=eps, **p)
-        price, queries = res["price"], res["num_oracle_queries"]
-    elif route == "mc":
-        n = int(request.args.get("n", 20000))
-        price, _ = classical.monte_carlo_price(n_paths=n, **p)
-        queries = n
-    else:
+    if route not in ("qae", "mc"):
         return jsonify(error="unknown route '%s' (use qae|mc)" % route), 400
+    try:
+        gt = tree.exact_tree_price(**p)
+        if route == "qae":
+            res = qae.price(epsilon_target=eps, **p)
+            price, queries = res["price"], res["num_oracle_queries"]
+        else:  # mc
+            n = int(request.args.get("n", 20000))
+            price, _ = classical.monte_carlo_price(n_paths=n, **p)
+            queries = n
+    except Exception as exc:  # surface live failures instead of a blank screen
+        return jsonify(error="%s: %s" % (type(exc).__name__, exc)), 500
     return jsonify(route=route, price=float(price), queries=int(queries),
                    ground_truth=float(gt), abs_error=abs(float(price) - float(gt)))
 

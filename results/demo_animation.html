@@ -277,11 +277,15 @@ async function rerun(route){
   const qs='S0='+(p.S0||100)+'&K='+(p.K||100)+'&r='+(p.r||0.05)
           +'&sigma='+(p.sigma||0.2)+'&T='+(p.T||1)+'&M=3&eps=0.05';
   try{
-    const res=await (await fetch(LIVE.url+'/api/rerun/'+route+'?'+qs)).json();
+    const r = await fetch(LIVE.url+'/api/rerun/'+route+'?'+qs);
+    const res = await r.json();
     const box=document.getElementById('live-out');
-    if(box) box.textContent = route+' → €'+res.price.toFixed(4)+' ('+res.queries+' queries, err '
-                              +res.abs_error.toFixed(4)+')';
-  }catch(e){}
+    if(!box) return;
+    if(!r.ok || res.error){ box.textContent = 're-run failed: '+(res.error||('HTTP '+r.status)); return; }
+    box.textContent = route+' → €'+res.price.toFixed(4)+' ('+res.queries+' queries, err '
+                      +res.abs_error.toFixed(4)+')';
+  }catch(e){ const box=document.getElementById('live-out');
+             if(box) box.textContent='re-run failed: '+e.message; }
 }
 function liveControls(){
   if(!LIVE.on) return '';                 // server absent → nothing rendered
