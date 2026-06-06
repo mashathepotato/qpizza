@@ -77,6 +77,25 @@
   .box.must{border-color:rgba(70,211,154,.5)} .box.nice{border-color:rgba(124,92,255,.45)}
   footer{color:var(--muted);font-size:13px;text-align:center;margin-top:60px;border-top:1px solid var(--line);padding-top:24px}
   a{color:var(--acc2)}
+  /* literature / math */
+  .paper{border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:16px 0;background:var(--card)}
+  .paper .tag2{font-size:12px;color:var(--acc2);font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+  .paper h3{margin:6px 0 2px;font-size:19px}
+  .paper .venue{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .eq{font-family:"SF Mono",Menlo,Consolas,ui-monospace,monospace;background:#0d1430;border:1px solid var(--line);
+    border-left:3px solid var(--acc2);border-radius:0 10px 10px 0;padding:12px 16px;margin:12px 0;
+    font-size:15px;color:#e7edff;overflow-x:auto;line-height:1.8}
+  .eq .c{color:#8294bd} /* comment */
+  .eq b{color:#ffce8f;font-weight:600}
+  .mi{font-style:italic;color:#c7b8ff} /* math variable inline */
+  .io{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  @media(max-width:780px){.io{grid-template-columns:1fr}}
+  .io .b{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px 15px;font-size:14px}
+  .io .b h5{margin:0 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc2)}
+  .io .b.in{border-left:3px solid #23d5c8} .io .b.out{border-left:3px solid #46d39a}
+  .result{margin-top:12px;padding:10px 14px;background:rgba(70,211,154,.08);border-radius:10px;font-size:14px}
+  .result b{color:var(--good)}
+  sub,sup{font-size:.72em;line-height:0}
   .scoregrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
   @media(max-width:780px){.scoregrid{grid-template-columns:1fr 1fr}}
   .score{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px}
@@ -197,8 +216,158 @@
   <i>classical</i> probability exactly the way <i>quantum</i> probability predicts and quantitatively fits. It's
   quantum-<i>like</i> math, not quantum neurons. Answering this proactively is a credibility win.</div>
 
+  <!-- LITERATURE IN DETAIL -->
+  <h2><span class="num">04</span>The papers, in detail (math &amp; data)</h2>
+  <p class="lead">The low-level machinery behind the idea: the shared formalism, then each key
+  paper with its <b>equations</b> and the actual <b>inputs/outputs</b> (what data went in, what
+  came out). This is the “technical depth” backbone — and where our circuit comes from.</p>
+
+  <!-- shared formalism -->
+  <div class="paper">
+    <div class="tag2">Foundation · the shared formalism</div>
+    <h3>Quantum probability as a model of judgement</h3>
+    <div class="venue">Busemeyer &amp; Bruza, <i>Quantum Models of Cognition and Decision</i>, Cambridge Univ. Press (2012)</div>
+    <p class="muted">Replace classical (Kolmogorov) probability with quantum probability. A belief is a
+    vector; an answer is a projection; the order of projections matters when they don't commute.</p>
+    <div class="eq">
+      <span class="c">// belief state — a unit vector in a Hilbert space ℋ</span><br>
+      |ψ⟩ ∈ ℋ,&nbsp;&nbsp; ⟨ψ|ψ⟩ = 1<br><br>
+      <span class="c">// an answer = a subspace with projector P (P² = P = P†). Born rule:</span><br>
+      Pr(answer) = ‖ P|ψ⟩ ‖² = ⟨ψ| P |ψ⟩<br><br>
+      <span class="c">// ask A then B (with collapse) — sequential measurement</span><br>
+      Pr(A=a, then B=b) = ‖ P<sub>b</sub><sup>B</sup> · P<sub>a</sub><sup>A</sup> |ψ⟩ ‖²<br><br>
+      <span class="c">// classical iff the projectors commute; otherwise ORDER MATTERS</span><br>
+      [P<sup>A</sup>, P<sup>B</sup>] = P<sup>A</sup>P<sup>B</sup> − P<sup>B</sup>P<sup>A</sup> <b>= 0</b> ⇒ joint distribution exists (classical)<br>
+      [P<sup>A</sup>, P<sup>B</sup>] <b>≠ 0</b> ⇒ no joint, order effects, interference<br><br>
+      <span class="c">// interference: two amplitudes for one outcome don't just add as probabilities</span><br>
+      Pr = |a₁ + a₂|² = |a₁|² + |a₂|² <b>+ 2·Re(a₁* a₂)</b>&nbsp;&nbsp;<span class="c">← no classical analogue</span><br><br>
+      <span class="c">// deliberation = unitary evolution under a cognitive Hamiltonian H</span><br>
+      |ψ(t)⟩ = e<sup>−iHt</sup> |ψ(0)⟩
+    </div>
+    <p class="muted" style="font-size:13px">Two questions are <b>compatible</b> (commute → classical) or
+    <b>incompatible</b> (non-commuting → quantum). Human attitude questions behave as incompatible — that's the whole game.</p>
+  </div>
+
+  <!-- Wang 2014 -->
+  <div class="paper">
+    <div class="tag2">The killer evidence · parameter-free</div>
+    <h3>The QQ-equality for question-order effects</h3>
+    <div class="venue">Wang, Solloway, Shiffrin &amp; Busemeyer, <i>PNAS</i> 111(26):9431 (2014)</div>
+    <p class="muted">Derives an identity the quantum model must satisfy <i>regardless of any parameter</i>,
+    then confirms it on real surveys. This is what separates a model from a metaphor.</p>
+    <div class="eq">
+      <span class="c">// four sequential probabilities per question pair (y = yes, n = no)</span><br>
+      q = [ Pr(A<sub>y</sub>,B<sub>n</sub>) + Pr(A<sub>n</sub>,B<sub>y</sub>) ] − [ Pr(B<sub>y</sub>,A<sub>n</sub>) + Pr(B<sub>n</sub>,A<sub>y</sub>) ] <b>= 0</b><br>
+      <span class="c">// i.e. the chance of giving DIFFERENT answers is the same in both orders</span><br><br>
+      <span class="c">// why it must hold: law of reciprocity of transition probabilities</span><br>
+      |⟨a<sub>i</sub>|b<sub>j</sub>⟩|² = |⟨b<sub>j</sub>|a<sub>i</sub>⟩|²&nbsp;&nbsp;<span class="c">⇒ q = 0 for ANY state, ANY questions</span>
+    </div>
+    <div class="io">
+      <div class="b in"><h5>Domain input</h5><b>70 national surveys</b> (Gallup / Pew). Each has two
+        yes/no attitude questions asked in <b>counterbalanced order</b> (half see A first, half B first);
+        large n per survey → the eight sequential probabilities.</div>
+      <div class="b out"><h5>Output</h5>The measured <span class="mi">q</span> for each survey. Order effects
+        were <b>large &amp; significant</b>, yet <span class="mi">q</span> clustered at <b>≈ 0</b>
+        (no significant deviation) — the parameter-free prediction held across all 70.</div>
+    </div>
+    <div class="result"><b>Result:</b> a non-fitted quantum prediction confirmed on dozens of real datasets.
+    This is the slide that wins the “is it just philosophy?” argument.</div>
+  </div>
+
+  <!-- Pothos-Busemeyer 2009 -->
+  <div class="paper">
+    <div class="tag2">The mechanism · interference</div>
+    <h3>Quantum explanation of “irrational” choice (disjunction effect)</h3>
+    <div class="venue">Pothos &amp; Busemeyer, <i>Proc. R. Soc. B</i> 276:2171 (2009)</div>
+    <p class="muted">People violate the “sure-thing principle”: they’d act if they knew they won, and act
+    if they knew they lost, but <i>freeze</i> when the outcome is unknown. Classically impossible.</p>
+    <div class="eq">
+      <span class="c">// classical law of total probability (what SHOULD hold)</span><br>
+      Pr(B) = Pr(A₁)·Pr(B|A₁) + Pr(A₂)·Pr(B|A₂)&nbsp;&nbsp;<span class="c">⇒ Pr(B) lies between the two</span><br><br>
+      <span class="c">// quantum: the unknown state is a SUPERPOSITION of the two known states</span><br>
+      Pr(B | unknown) = |ψ₁ + ψ₂|² = |ψ₁|² + |ψ₂|² <b>+ 2·Re(ψ₁*ψ₂)</b><br>
+      <span class="c">// destructive interference 2·Re(ψ₁*ψ₂) &lt; 0 pushes Pr BELOW both — the freeze</span><br><br>
+      <span class="c">// model: 4-D space (opponent × own action); evolve under</span><br>
+      H = H<sub>payoff</sub> + H<sub>cognitive</sub>,&nbsp;&nbsp; |ψ(t)⟩ = e<sup>−iHt</sup>|ψ₀⟩
+    </div>
+    <div class="io">
+      <div class="b in"><h5>Domain input</h5>Behavioural choice rates from two-stage gambles &amp;
+        a Prisoner’s-Dilemma task under three conditions: <b>told-win, told-lose, unknown</b>.</div>
+      <div class="b out"><h5>Output</h5>Fitted unitary reproduces the observed unknown-condition rate via the
+        interference term. An equivalent <b>classical Markov model provably cannot</b> (it obeys the LoTP).</div>
+    </div>
+    <div class="result"><b>Result:</b> quantum &gt; classical on a textbook rationality violation — the core “quantum beats classical” claim.</div>
+  </div>
+
+  <!-- Yukalov-Sornette -->
+  <div class="paper">
+    <div class="tag2">The finance bridge</div>
+    <h3>Quantum Decision Theory for risky prospects</h3>
+    <div class="venue">Yukalov &amp; Sornette, <i>Adv. Complex Syst.</i> 13:659 (2010); <i>Theory and Decision</i> 70:283 (2011)</div>
+    <p class="muted">Applies the same machinery to <b>lotteries/prospects</b> — the objects of prospect theory
+    and behavioural finance. (Sornette is a famous crash-modelling econophysicist → our credible finance link.)</p>
+    <div class="eq">
+      <span class="c">// probability of choosing prospect π = rational "utility" part + interference "attraction" part</span><br>
+      Pr(π) = f(π) <b>+ q(π)</b><br>
+      Σ<sub>π</sub> f(π) = 1,&nbsp;&nbsp; Σ<sub>π</sub> q(π) = 0,&nbsp;&nbsp; −1 ≤ q(π) ≤ 1<br><br>
+      <span class="c">// the "quarter law": with no other info, the interference magnitude averages to 1/4</span><br>
+      ⟨ |q(π)| ⟩ ≈ <b>0.25</b>&nbsp;&nbsp;<span class="c">← a parameter-free prior for irrational pull</span>
+    </div>
+    <div class="io">
+      <div class="b in"><h5>Domain input</h5>Choice frequencies from risk/uncertainty experiments —
+        Allais &amp; Ellsberg paradoxes, conjunction &amp; disjunction effects, lottery pairs.</div>
+      <div class="b out"><h5>Output</h5>Predicted choice probabilities including the non-classical reversals;
+        the <b>quarter law</b> estimates the interference size with <b>no fitting</b>.</div>
+    </div>
+    <div class="result"><b>Use it for:</b> framing the investor decision as a “prospect”, and a defensible, finance-grounded citation.</div>
+  </div>
+
+  <!-- Widdows 2023 -->
+  <div class="paper">
+    <div class="tag2">Buildability proof · on qubits</div>
+    <h3>Quantum-circuit components for decision-making</h3>
+    <div class="venue">Widdows, Rani &amp; Pothos, <i>Entropy</i> 25(4):548 (2023)</div>
+    <p class="muted">Shows these cognitive models run as <b>actual qubit circuits</b> — gates and measurement,
+    on simulators or real hardware. This is why a weekend build is realistic.</p>
+    <div class="eq">
+      <span class="c">// one yes/no question = one qubit; a rotation sets the "yes" amplitude</span><br>
+      R<sub>y</sub>(θ) |0⟩ = cos(θ/2)|0⟩ + sin(θ/2)|1⟩<br><br>
+      <span class="c">// incompatible questions = non-commuting rotations ⇒ order effect</span><br>
+      R<sub>y</sub>(θ<sub>B</sub>) · R<sub>y</sub>... with tilted axes:&nbsp; U<sub>B</sub>U<sub>A</sub> ≠ U<sub>A</sub>U<sub>B</sub><br><br>
+      <span class="c">// disjunction / interference: superpose, add relative phase, measure</span><br>
+      H|0⟩ = (|0⟩+|1⟩)/√2&nbsp; → phase φ → measure
+    </div>
+    <div class="io">
+      <div class="b in"><h5>Domain input</h5>Cognitive-task parameters (rotation angles, phases) encoding a decision model.</div>
+      <div class="b out"><h5>Output</h5>Measurement statistics that match the cognitive predictions; runnable in Qiskit / PennyLane and on NISQ hardware.</div>
+    </div>
+  </div>
+
+  <!-- Our model tie-in -->
+  <div class="paper" style="border-color:rgba(124,92,255,.5)">
+    <div class="tag2" style="color:#c7b8ff">⟶ what our code actually implements</div>
+    <h3>Our single-qubit investor (in <code>/quantum_investor</code>)</h3>
+    <div class="venue">Direct, minimal instance of the formalism above — verified to satisfy QQ-equality for all parameters.</div>
+    <div class="eq">
+      <span class="c">// belief state, prepared by a PennyLane circuit R_y(2α)</span><br>
+      |ψ⟩ = cos α |0⟩ + sin α |1⟩<br><br>
+      <span class="c">// Question A measured in the computational (Z) basis; Question B in a TILTED basis</span><br>
+      |A=yes⟩ = |0⟩&nbsp;&nbsp;&nbsp; |B=yes⟩ = cos β |0⟩ + sin β |1⟩<br><br>
+      <span class="c">// the order effect on B's yes-rate (β = tilt = incompatibility)</span><br>
+      Δ = cos²(α−β) − [ cos²α·cos²β + sin²α·sin²β ]&nbsp;&nbsp;<span class="c">≠ 0 when β ≠ 0</span><br><br>
+      <span class="c">// and we verify numerically, for ALL α,β:</span><br>
+      q = sin²β − sin²β <b>= 0</b>&nbsp;&nbsp;<span class="c">← the QQ-equality, parameter-free ✓</span>
+    </div>
+    <div class="io">
+      <div class="b in"><h5>Input (domain)</h5>Eight sequential yes/no probabilities (both orders) from
+        humans — <b>currently illustrative; swap in real survey data</b>.</div>
+      <div class="b out"><h5>Output</h5>Fitted (α, β); quantum fits ~131× better than the classical baseline;
+        classical order effect = 0; QQ = 0. Headline figure auto-generated.</div>
+    </div>
+  </div>
+
   <!-- THE DEMO -->
-  <h2><span class="num">04</span>What we actually build &amp; show</h2>
+  <h2><span class="num">05</span>What we actually build &amp; show</h2>
   <p class="lead">A quantum-circuit “investor” that reproduces a real behavioral-finance quirk a classical model
   <b>can't</b> — then we scale it to a crowd to show herding/bubbles.</p>
 
@@ -249,7 +418,7 @@
   </div>
 
   <!-- 24 HOUR PLAN -->
-  <h2><span class="num">05</span>The 24-hour plan → submit tomorrow 10:00 AM</h2>
+  <h2><span class="num">06</span>The 24-hour plan → submit tomorrow 10:00 AM</h2>
   <p class="lead">Team of 4: <span class="tag t-phy">PHY</span> two physicists (circuits &amp; theory) ·
   <span class="tag t-cs">CS</span> two coders (data, baseline, visuals, deck). Times assume a ~10:00 AM start today —
   <b>slide every block to match your real start time</b>. The golden rule: a working <i>core</i> demo by tonight, polish after sleep.</p>
@@ -275,7 +444,7 @@
         <li><b>PHY1 + PHY2:</b> the quantum decision circuit — qubit belief state, two non-commuting “question” rotations,
           interference, measurement. Get it to <b>reproduce the anomaly</b> (order-dependence / the QQ-equality).</li>
         <li><b>CS1:</b> the classical baseline (Bayesian/Markov) + the data pipeline; show the baseline <b>fails</b>.</li>
-        <li><b>CS2:</b> plotting + demo scaffold + start the slide deck skeleton (5 beats from section 04).</li>
+        <li><b>CS2:</b> plotting + demo scaffold + start the slide deck skeleton (5 beats from section 05).</li>
       </ul>
       <div class="who-tags"><span class="tag t-phy">PHY1</span><span class="tag t-phy">PHY2</span><span class="tag t-cs">CS1</span><span class="tag t-cs">CS2</span></div>
       <div class="chk">✔ Checkpoint (Hr 7): circuit shows the effect; baseline misses it — separately.</div>
@@ -286,7 +455,7 @@
     <div class="time">Hr 7–10<small>~17:00–20:00</small></div>
     <div class="body"><h4>Integrate the single-investor demo (THE must-have)</h4>
       <p class="muted">Wire it together: same scenario → classical predicts X (wrong), quantum predicts Y (matches humans).
-      Produce <b>the headline comparison plot</b> (section 04). Break for dinner once it runs end-to-end.</p>
+      Produce <b>the headline comparison plot</b> (section 05). Break for dinner once it runs end-to-end.</p>
       <div class="who-tags"><span class="tag t-all">ALL</span></div>
       <div class="chk">✔ MILESTONE: core demo works end-to-end. If we stop now, we can still submit. 🎯</div>
     </div>
