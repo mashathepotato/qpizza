@@ -42,8 +42,9 @@ TRACKS = [
         "key": "pricer",
         "title": "Quantum Option Pricer - quadratic Monte-Carlo speedup",
         "claim": "QNDM+QAE reaches accuracy eps in O(1/eps) oracle queries vs MC's O(1/eps^2).",
-        "figure": _p("results", "figures", "model_results.png"),
+        "figure": _p("results", "figures", "price_forecast.png"),
         "extra_figures": [
+            _p("results", "figures", "model_results.png"),
             _p("results", "figures", "error_vs_queries.png"),
             _p("quantum_pricer", "complexity.png"),
             _p("quantum_pricer", "speedup.png"),
@@ -51,6 +52,10 @@ TRACKS = [
         ],
         # Per-figure captions (keyed by basename) shown under each image.
         "captions": {
+            "price_forecast.png": ("What we price: from today's NOKIA.HE spot "
+                                   "S0=13.09 EUR, the CRR risk-neutral tree predicts the "
+                                   "price distribution over the 1-year horizon (E[S_T]=13.49, "
+                                   "forward). The terminal distribution is what the call is priced on."),
             "model_results.png": ("Actual run of all four routes: each recovers the "
                                   "exact-tree price (M=3); right panel is the real "
                                   "transpiled IQM CZ depth + qubits. QAE is shallowest "
