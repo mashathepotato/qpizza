@@ -53,3 +53,22 @@ def test_cognition_figure_regenerates(tmp_path):
     out = tmp_path / "fig.png"
     plotter.headline_figure(d, obs, qq, c_pred, path=str(out))
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_manifest_has_three_tracks():
+    from results import manifest
+    keys = {t["key"] for t in manifest.TRACKS}
+    assert keys == {"cognition", "pricer", "triage"}
+
+
+def test_each_track_has_required_fields():
+    from results import manifest
+    for t in manifest.TRACKS:
+        for field in ("key", "title", "claim", "figure", "table", "prose", "provenance"):
+            assert field in t, f"{t['key']} missing {field}"
+        assert "header" in t["table"] and "rows" in t["table"]
+
+
+def test_summary_has_headline_numbers():
+    from results import manifest
+    assert len(manifest.SUMMARY["headlines"]) == 3
