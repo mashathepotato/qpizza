@@ -12,6 +12,9 @@ Shared reference for our team (2 CS + 2 physics). Goal: a creative, end-to-end,
   reservoir computing). Start here for the idea.
 - [`pressure-test.md`](./pressure-test.md) — **deep feasibility check of combos A, C, F**:
   prior-art/novelty, what breaks, 36h scope, classical baseline, fallback. **A = top pick.**
+- [`creative-fusions.md`](./creative-fusions.md) — **wow-factor multi-paper fusions** for the
+  hackathon: "Entanglement of Markets" (crash order parameter), "Noise Is the Market", "Shape
+  of a Crash", "Market Brain". Hero = Idea 1.
 - [`ideas.md`](./ideas.md) — candidate directions + decision log.
 - [`resources.md`](./resources.md) — frameworks, papers, datasets, setup.
 
