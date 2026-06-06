@@ -1,0 +1,49 @@
+{
+  "provenance": "yfinance NOKIA.HE 1y daily",
+  "ticker": "NOKIA.HE",
+  "task": "next-day top-decile |return| (vol event)",
+  "sequence_length_L": 10,
+  "train_frac": 0.5,
+  "proxy_quantile": 0.9,
+  "n_windows": 240,
+  "n_train": 120,
+  "n_test": 120,
+  "n_test_events": 35,
+  "neural_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "epochs": 150,
+  "lr": 0.05,
+  "weight_decay": 0.01,
+  "classical_members": [
+    "RNN",
+    "GRU",
+    "LSTM",
+    "Transformer",
+    "GARCH(1,1)"
+  ],
+  "quantum_members": [
+    "QRNN",
+    "QGRU",
+    "QLSTM",
+    "QTransformer"
+  ],
+  "member_auc": {
+    "RNN": 0.591,
+    "GRU": 0.617,
+    "LSTM": 0.636,
+    "Transformer": 0.638,
+    "GARCH(1,1)": 0.639,
+    "QRNN": 0.637,
+    "QGRU": 0.627,
+    "QLSTM": 0.654,
+    "QTransformer": 0.645
+  },
+  "classical_ensemble_auc": 0.651,
+  "quantum_ensemble_auc": 0.655,
+  "note": "Scores are min-max normalized per member over the test window, then averaged uniformly within each family. Models predict next-day VOLATILITY, not price. ~0.01 run-to-run AUC noise on retrain (BLAS); this file is the canonical data for the committed figure."
+}
