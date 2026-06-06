@@ -83,6 +83,75 @@ def error_vs_queries(S0, K, r, sigma, T, M, option="european", kind="call",
     return rows
 
 
+def error_vs_queries_rms(S0, K, r, sigma, T, M, option="european", kind="call",
+                         mc_budgets=(250, 1000, 4000, 16000, 64000, 256000),
+                         qae_eps=(0.1, 0.05, 0.025, 0.012, 0.006, 0.003),
+                         qae_shots=100, seeds=8):
+    """Seed-averaged empirical RMS-error descent for the honest Figure 2.
+
+    Unlike :func:`error_vs_queries` (single seed, statevector-exact QAE -> flat),
+    this AVERAGES error over ``seeds`` random seeds at each budget so the descent is
+    clean and the empirical slopes are visible:
+
+      * classical MC: RMS error ~ 1/sqrt(N)  -> log-log slope ~ -1/2.
+      * QAE (FINITE shots): a finite shot budget (``qae_shots``) makes IAE actually
+        iterate Grover rounds, so estimation error is real (not machine-zero). RMS
+        error ~ 1/queries -> log-log slope ~ -1.
+
+    Ground truth is the EXACT TREE PRICE. Returns row dicts with keys
+    {method, budget_x, rms_error, n_seeds, note}; budget_x is N for MC and the mean
+    ``num_oracle_queries`` for QAE.
+    """
+    exact = tree.exact_tree_price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                                  option=option, kind=kind)
+    rows = []
+
+    # classical Monte Carlo: RMS error over `seeds` seeds at each sample count N
+    for n in mc_budgets:
+        errs = []
+        for k in range(seeds):
+            p, _ = classical.monte_carlo_price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                                               option=option, kind=kind,
+                                               n_paths=int(n), seed=k)
+            errs.append(p - exact)
+        rms = float(np.sqrt(np.mean(np.square(errs))))
+        rows.append(dict(method="classical_mc", budget_x=float(n), rms_error=rms,
+                         n_seeds=seeds, note="rms_over_seeds"))
+
+    # QAE: finite-shot Sampler so estimation error is genuine; RMS over `seeds` seeds
+    qae_x, qae_y = [], []
+    for eps in qae_eps:
+        qs, errs = [], []
+        for k in range(seeds):
+            res = qae.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M, option=option,
+                            kind=kind, epsilon_target=eps, shots=qae_shots, seed=k)
+            qs.append(int(res["num_oracle_queries"]))
+            errs.append(res["price"] - exact)
+        mean_q = float(np.mean(qs))
+        rms = float(np.sqrt(np.mean(np.square(errs))))
+        rows.append(dict(method="qae", budget_x=mean_q, rms_error=rms,
+                         n_seeds=seeds, note="finite_shots_rms"))
+        if mean_q > 0:
+            qae_x.append(mean_q)
+            qae_y.append(rms)
+
+    # Honesty fallback: if the IAE Grover-power schedule SATURATED (fewer than 3
+    # distinct positive query levels even at finite shots) we cannot claim an
+    # empirical descent -- overlay the theoretical pi/(2 eps) line (slope ~ -1) and
+    # flag the QAE rows so the plot/legend report it instead of faking a curve.
+    distinct = {round(x) for x in qae_x}
+    if len(distinct) < 3:
+        for row in rows:
+            if row["method"] == "qae":
+                row["note"] = "qae_saturated_theory"
+        for eps in qae_eps:
+            rows.append(dict(method="qae", budget_x=float(np.pi / (2.0 * eps)),
+                             rms_error=float(eps), n_seeds=0,
+                             note="qae_saturated_theory"))
+
+    return rows
+
+
 def _cz_depth(qc):
     t = transpile(qc, basis_gates=backends.IQM_BASIS, optimization_level=1)
     return t.depth(lambda instr: instr.operation.name == "cz")
@@ -271,6 +340,78 @@ def save_speedup_plot(rows, path="quantum_pricer/speedup.png"):
     ax.set_xlabel("queries / samples")
     ax.set_ylabel("absolute price error (vs exact tree)")
     ax.set_title("Error vs queries: classical 1/sqrt(N) vs quantum 1/N")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
+
+
+def save_speedup_plot_rms(rows, path="quantum_pricer/speedup.png"):
+    """Log-log empirical RMS-error-vs-queries PNG for Figure 2.
+
+    x = queries (QAE) / samples (MC), y = seed-averaged RMS error vs the exact tree
+    price. Each series is drawn with markers + line; log-log slopes are fitted via
+    np.polyfit and put in the legend (expect MC ~ -0.5, QAE ~ -1.0). Saturated-QAE
+    rows (note='qae_saturated_theory') are drawn as a dashed theoretical reference.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    def _fit_slope(xs, ys):
+        xs, ys = np.asarray(xs, float), np.asarray(ys, float)
+        if len(xs) < 2:
+            return None
+        return float(np.polyfit(np.log(xs), np.log(ys), 1)[0])
+
+    def _pts(predicate):
+        pts = sorted((r["budget_x"], r["rms_error"]) for r in rows
+                     if predicate(r) and r["budget_x"] > 0
+                     and np.isfinite(r["rms_error"]) and r["rms_error"] > 0)
+        if not pts:
+            return [], []
+        xs, ys = zip(*pts)
+        return list(xs), list(ys)
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+
+    mc_x, mc_y = _pts(lambda r: r["method"] == "classical_mc")
+    if mc_x:
+        s = _fit_slope(mc_x, mc_y)
+        lab = "classical MC ($1/\\sqrt{N}$)"
+        if s is not None:
+            lab += f", slope={s:.2f}"
+        ax.loglog(mc_x, mc_y, "s-", color="tab:red", label=lab)
+
+    saturated = any(r["method"] == "qae" and r.get("note") == "qae_saturated_theory"
+                    and r["n_seeds"] == 0 for r in rows)
+    if saturated:
+        # empirical (saturated) QAE points + dashed theoretical pi/(2 eps) line
+        qe_x, qe_y = _pts(lambda r: r["method"] == "qae" and r["n_seeds"] > 0)
+        if qe_x:
+            ax.loglog(qe_x, qe_y, "o", color="tab:blue", markersize=8,
+                      label="QAE empirical (saturated)")
+        qt_x, qt_y = _pts(lambda r: r["method"] == "qae" and r["n_seeds"] == 0)
+        if qt_x:
+            s = _fit_slope(qt_x, qt_y)
+            lab = "QAE theory $\\pi/2\\varepsilon$"
+            if s is not None:
+                lab += f", slope={s:.2f}"
+            ax.loglog(qt_x, qt_y, "--", color="tab:blue", label=lab)
+    else:
+        qae_x, qae_y = _pts(lambda r: r["method"] == "qae")
+        if qae_x:
+            s = _fit_slope(qae_x, qae_y)
+            lab = "QAE finite-shots ($1/N$)"
+            if s is not None:
+                lab += f", slope={s:.2f}"
+            ax.loglog(qae_x, qae_y, "o-", color="tab:blue", label=lab)
+
+    ax.set_xlabel("queries (QAE) / samples (MC)")
+    ax.set_ylabel("RMS price error vs exact tree")
+    ax.set_title("Empirical RMS error vs queries: classical "
+                 "$1/\\sqrt{N}$ vs QAE $1/N$")
     ax.legend()
     fig.tight_layout()
     fig.savefig(path, dpi=130)

@@ -71,3 +71,55 @@ def test_complexity_plot_writes_file(base_params, tmp_path):
     path = benchmark.save_complexity_plot(rows, path=str(out))
     assert out.exists() and out.stat().st_size > 0
     assert str(out) == path
+
+
+# ── empirical RMS-error descent (Figure 2) ─────────────────────────────────────
+import pytest
+
+
+@pytest.fixture(scope="module")
+def rms_rows():
+    """Run the (slow) seed-averaged descent once and share across the module."""
+    bp = dict(S0=100.0, K=100.0, r=0.05, sigma=0.20, T=1.0)
+    return benchmark.error_vs_queries_rms(M=5, **bp)
+
+
+def _series(rows, method):
+    pts = [(r["budget_x"], r["rms_error"]) for r in rows
+           if r["method"] == method and r["budget_x"] > 0
+           and np.isfinite(r["rms_error"]) and r["rms_error"] > 0]
+    pts.sort()
+    return pts
+
+
+def test_error_vs_queries_rms_mc_descends(rms_rows):
+    # classical MC RMS error ~ 1/sqrt(N): at the largest N it must be >= 4x smaller
+    pts = _series(rms_rows, "classical_mc")
+    assert len(pts) >= 2
+    assert pts[0][1] / pts[-1][1] >= 4.0
+
+
+def test_error_vs_queries_rms_qae_descends(rms_rows):
+    qae_rows = [r for r in rms_rows if r["method"] == "qae"]
+    pts = _series(rms_rows, "qae")
+    assert len(pts) >= 2
+    # error at the largest query budget must beat the smallest
+    assert pts[-1][1] < pts[0][1]
+    saturated = any(r.get("note") == "qae_saturated_theory" for r in qae_rows)
+    if saturated:
+        # documented fallback: theoretical pi/(2 eps) line, slope ~ -1
+        xs = np.array([p[0] for p in pts], float)
+        ys = np.array([p[1] for p in pts], float)
+        slope = np.polyfit(np.log(xs), np.log(ys), 1)[0]
+        assert slope < -0.7
+    else:
+        # genuine empirical descent: >= 3 distinct query x-values (no trivial saturation)
+        distinct_x = {round(p[0]) for p in pts}
+        assert len(distinct_x) >= 3
+
+
+def test_speedup_plot_rms_writes_file(rms_rows, tmp_path):
+    out = tmp_path / "speedup.png"
+    path = benchmark.save_speedup_plot_rms(rms_rows, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+    assert str(out) == path

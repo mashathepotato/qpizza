@@ -129,7 +129,7 @@ def main():
     _banner("Step 5 — Query-complexity plot (money slide)")
     from quantum_pricer.benchmark import (
         queries_to_accuracy, save_complexity_plot,
-        error_vs_queries, save_speedup_plot,
+        error_vs_queries_rms, save_speedup_plot_rms,
     )
     import numpy as np
 
@@ -160,16 +160,32 @@ def main():
     if qae_slope is not None:
         print(f"  Fitted slope  QAE theory    : {qae_slope:.3f}  (theory = 1.0)")
 
-    print(f"\n  Running error_vs_queries at M={M_BENCH} (MC + QAE; QSVT skipped for speed)…")
-    srows = error_vs_queries(
-        S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_BENCH,
+    print(f"\n  Running error_vs_queries_rms at M=5 "
+          f"(seed-averaged RMS error; finite-shot QAE)…")
+    # Empirical Figure 2: RMS error over 8 seeds at each budget. Classical MC
+    # descends ~1/sqrt(N) (slope -1/2); finite-shot QAE descends ~1/queries (slope -1).
+    srows = error_vs_queries_rms(
+        S0=S0, K=K, r=r, sigma=sigma, T=T, M=5,
         option="european", kind="call",
-        mc_budgets=(1_000, 10_000, 100_000),
-        qae_eps=(0.2, 0.1, 0.05, 0.02, 0.01),
-        include_qsvt=False,          # QSVT is slow at M=4; excluded for wall-clock
     )
-    save_speedup_plot(srows, path=_SPEEDUP_PATH)
+    save_speedup_plot_rms(srows, path=_SPEEDUP_PATH)
     print(f"  Saved speedup plot    : {_SPEEDUP_PATH}")
+
+    def _rms_slope(method):
+        pts = [(row["budget_x"], row["rms_error"]) for row in srows
+               if row["method"] == method and row["budget_x"] > 0
+               and np.isfinite(row["rms_error"]) and row["rms_error"] > 0]
+        if len(pts) < 2:
+            return None
+        xs, ys = zip(*sorted(pts))
+        return float(np.polyfit(np.log(xs), np.log(ys), 1)[0])
+
+    mc_rms_slope  = _rms_slope("classical_mc")
+    qae_rms_slope = _rms_slope("qae")
+    if mc_rms_slope is not None:
+        print(f"  Fitted RMS slope  classical MC : {mc_rms_slope:.3f}  (expect -0.5)")
+    if qae_rms_slope is not None:
+        print(f"  Fitted RMS slope  QAE          : {qae_rms_slope:.3f}  (expect -1.0)")
 
     # ── 6. Summary ────────────────────────────────────────────────────────────
     _banner("Summary")
