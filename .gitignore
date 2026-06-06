@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+quantum_pricer/dashboard_state.json
+quantum_pricer/dashboard_log.jsonl

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="15">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum Option Pricer &mdash; Live Dashboard</title>
+<style>
+  :root {
+    --bg:#0c1018; --card:#161c28; --card2:#1d2433; --fg:#e6ecf5; --muted:#8b97ad;
+    --accent:#4ea1ff; --good:#37d399; --warn:#f5b942; --bad:#ff6b6b;
+    --amber:#3a2f12; --amberb:#f5b942;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.45; }
+  header { padding:22px 28px; background:linear-gradient(120deg,#13192a,#0c1018);
+    border-bottom:1px solid #222b3d; display:flex; align-items:center;
+    justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  header h1 { margin:0; font-size:22px; letter-spacing:.3px; }
+  .sub { color:var(--muted); font-size:13px; margin-top:4px; }
+  .badge { padding:6px 14px; border-radius:20px; font-weight:700; font-size:13px;
+    letter-spacing:.5px; }
+  .badge.live { background:#10331f; color:var(--good); border:1px solid #1f6b43; }
+  .badge.synth { background:#332a10; color:var(--warn); border:1px solid #6b561f; }
+  main { padding:22px 28px; max-width:1500px; margin:0 auto; }
+  .grid { display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+  .card { background:var(--card); border:1px solid #222b3d; border-radius:14px;
+    padding:18px 20px; }
+  .card h2 { margin:0 0 12px; font-size:15px; color:var(--accent);
+    text-transform:uppercase; letter-spacing:.6px; }
+  .card h3 { margin:0 0 8px; font-size:13px; color:var(--muted); }
+  .price { background:var(--card2); }
+  .route { font-size:13px; color:var(--muted); }
+  .big { font-size:30px; font-weight:700; margin:2px 0; }
+  .big.gt { color:var(--good); }
+  .truth { background:linear-gradient(160deg,#14241c,#161c28);
+    border-color:#1f6b43; grid-column:span 2; }
+  .err { font-size:13px; font-weight:600; margin-bottom:4px; }
+  .err.good { color:var(--good); }
+  .err.warn { color:var(--warn); }
+  .err.bad { color:var(--bad); }
+  .note { font-size:12px; color:var(--muted); margin-top:8px; }
+  .meta { font-size:12px; color:var(--muted); }
+  table.kv { width:100%; border-collapse:collapse; font-size:13px; }
+  table.kv td, table.kv th { padding:5px 6px; border-bottom:1px solid #222b3d;
+    text-align:left; }
+  table.kv td:first-child { color:var(--muted); }
+  table.res tr.shallow td { color:var(--good); }
+  table.res tr.deep td { color:var(--warn); }
+  .figrow { display:flex; gap:18px; flex-wrap:wrap; }
+  .figrow figure { margin:0; flex:1 1 360px; }
+  .figrow img { width:100%; border-radius:10px; background:#fff; }
+  .figrow figcaption { font-size:12px; color:var(--muted); margin-top:6px; }
+  .hwgrid { display:flex; gap:24px; margin:10px 0; }
+  .hwgrid .big { font-size:24px; }
+  .honesty { background:var(--amber); border:1px solid var(--amberb); }
+  .honesty h2 { color:var(--amberb); }
+  .honesty ul { margin:0; padding-left:18px; font-size:13px; }
+  .honesty li { margin-bottom:7px; }
+  .errbanner { border-color:var(--bad); }
+  .errbanner h2 { color:var(--bad); }
+  .errbanner ul { font-size:12px; color:var(--muted); }
+  .feedcols { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  ul.feed { list-style:none; margin:0; padding:0; font-size:12px;
+    font-family:ui-monospace,Menlo,monospace; max-height:240px; overflow:auto; }
+  ul.feed li { padding:3px 0; border-bottom:1px solid #1c2433; }
+  ul.feed .t { color:var(--muted); }
+  ul.feed .k { color:var(--accent); }
+  .full { grid-column:1 / -1; }
+  @media (max-width:720px) { .truth, .feedcols { grid-column:auto;
+    grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Quantum Option Pricer &mdash; Live Dashboard</h1>
+    <div class="sub">last updated 2026-06-06T14:23:21 &middot; auto-refresh 15s</div>
+  </div>
+  <div class="badge live">LIVE (yfinance)</div>
+</header>
+<main>
+  
+  <div class="grid">
+    
+      <div class="card truth">
+        <h2>Ground truth</h2>
+        <div class="route">Exact binomial tree</div>
+        <div class="big gt">2.6510</div>
+        <div class="note">Discounted expectation over all 2^M paths &mdash; the
+        quantity every quantum route estimates.</div>
+        <div class="route" style="margin-top:14px">Black-Scholes (continuum)</div>
+        <div class="big">2.6393</div>
+      </div>
+    
+      <div class="card">
+        <h2>Market parameters</h2>
+        <table class="kv">
+          <tr><td>S0 (spot)</td><td>13.0900</td></tr>
+          <tr><td>sigma (annualized)</td><td>0.4790</td></tr>
+          <tr><td>r (risk-free)</td><td>0.0300</td></tr>
+          <tr><td>K (ATM strike)</td><td>13.0900</td></tr>
+          <tr><td>T (years)</td><td>1.00</td></tr>
+          <tr><td>M (tree steps)</td><td>4</td></tr>
+          <tr><td>ticker</td><td>NOKIA.HE</td></tr>
+          <tr><td>date range</td><td>2025-06-05 &rarr; 2026-06-05</td></tr>
+          <tr><td>n_obs</td><td>251</td></tr>
+        </table>
+      </div>
+  </div>
+  <h2 style="margin:24px 0 6px;color:var(--accent);font-size:15px;letter-spacing:.6px;text-transform:uppercase">Route prices</h2>
+  <div class="grid">
+    
+      <div class="card price">
+        <div class="route">Classical Monte Carlo</div>
+        <div class="big">2.6470</div>
+        <div class='err good'>err vs tree: -0.0040 (-0.15%)</div>
+        <div class='meta'>stderr: 0.0105</div>
+        <div class="note">200k paths, O(1/eps^2) statistical error</div>
+      </div>
+      <div class="card price">
+        <div class="route">QNDM Fourier</div>
+        <div class="big">2.6510</div>
+        <div class='err good'>err vs tree: -0.0000 (-0.00%)</div>
+        
+        <div class="note">O(1/eps^2) in shots; Q50 anchor (shallow, exact loading)</div>
+      </div>
+      <div class="card price">
+        <div class="route">QNDM QAE</div>
+        <div class="big">2.6506</div>
+        <div class='err good'>err vs tree: -0.0004 (-0.01%)</div>
+        <div class='meta'>oracle queries: 40960</div>
+        <div class="note">O(1/eps) oracle queries (saturates at small M)</div>
+      </div>
+      <div class="card price">
+        <div class="route">Novel QSVT</div>
+        <div class="big">2.5991</div>
+        <div class='err good'>err vs tree: -0.0519 (-1.96%)</div>
+        <div class='meta'>QSP degree: 60, probe resid: 0.0058</div>
+        <div class="note">straddle E[|f-K|] + parity, ~1.4% approx floor</div>
+      </div>
+  </div>
+  <div class="grid" style="margin-top:18px">
+    <div class="full">
+      <div class="card">
+        <h2>The quadratic advantage</h2>
+        <div class="figrow">
+          <figure>
+            <img src="complexity.png?t=20260606T142321" alt="query complexity">
+            <figcaption>Query complexity: classical MC O(1/eps^2) (slope ~2) vs
+            quantum amplitude estimation O(1/eps) (slope ~1).</figcaption>
+          </figure>
+          <figure>
+            <img src="speedup.png?t=20260606T142321" alt="empirical RMS error vs queries">
+            <figcaption>Empirical RMS error vs queries: MC descends ~1/sqrt(N),
+            QAE descends steeper toward 1/N.</figcaption>
+          </figure>
+        </div>
+        <div class="note">MC analytic slope ~ 2.00 (quadratic), QAE theory slope ~ 1.00 (linear). Empirical RMS slopes: MC -0.61, QAE -0.75.</div>
+      </div></div>
+  </div>
+  <div class="grid" style="margin-top:18px">
+    
+      <div class="card">
+        <h2>Resource table (transpiled to IQM {r, cz})</h2>
+        <table class="kv res">
+          <tr><th>method</th><th>qubits</th><th>IQM cz depth</th></tr>
+          <tr class=''><td>classical_mc</td><td>0</td><td>0</td></tr><tr class='shallow'><td>fourier</td><td>5</td><td>112</td></tr><tr class='shallow'><td>qae</td><td>5</td><td>16</td></tr><tr class='deep'><td>qsvt</td><td>5</td><td>2240</td></tr>
+        </table>
+        <div class="note">Fourier / QAE stay shallow (Q50-feasible); QSVT is deep
+        (high cz depth from the QET-U phase schedule).</div>
+      </div>
+    
+          <div class="card">
+            <h2>Hardware (NISQ noise)</h2>
+            <div class="route">q50_fake (IQMFakeAphrodite), M=1</div>
+            <div class="hwgrid">
+              <div><div class="big">2.6191</div><div class="meta">noisy price</div></div>
+              <div><div class="big">3.0984</div><div class="meta">exact</div></div>
+              <div><div class="big">+15.47%</div><div class="meta">abs error</div></div>
+            </div>
+            <div class="note">Real NISQ noise on the shallow Fourier route.</div>
+          </div>
+  </div>
+  <div class="grid" style="margin-top:18px">
+    <div class="full">
+      <div class="card honesty">
+        <h2>Honesty notes</h2>
+        <ul>
+          <li><b>Ground truth</b> = exact binomial tree price, not Black-Scholes.</li>
+          <li><b>QSVT</b> measures the straddle E[|f-K|] and recovers the call by
+          put-call parity; it carries a ~1.4% polynomial-approximation residual near
+          the kink. NO answer-calibration: every constant comes from the value range
+          and the swept QSP phases.</li>
+          <li><b>Fourier</b> sampling is O(1/eps^2) in shots (parallel to MC); its win
+          is qubit count / shallow depth / Q50 feasibility, not eps-scaling.</li>
+          <li><b>QAE</b> has genuine O(1/eps) query scaling but its IAE Grover schedule
+          SATURATES at small M (several eps targets report the same query count).</li>
+          <li><b>Hardware</b> shows real NISQ noise on q50_fake; errors are expected.</li>
+        </ul>
+      </div></div>
+  </div>
+  <div class="grid" style="margin-top:18px">
+    <div class="full">
+      <div class="card">
+        <h2>Activity feed</h2>
+        <div class="feedcols">
+          <div>
+            <h3>Rebuilds (last 20)</h3>
+            <ul class="feed"><li><span class='t'>2026-06-06T14:23:21</span> <span class='k'>[full]</span> rebuilt: QSVT err -1.96%, MC slope 2.00, QAE slope 1.00</li></ul>
+          </div>
+          <div>
+            <h3>Recent commits (33 total)</h3>
+            <ul class="feed"><li>2334482 benchmark: finite-shot QAE empirical descent for Figure 2 (RMS error vs queries)</li><li>a485aad polish: README wording (analytic/theory slopes, 30 tests), silence demo deprecation warnings</li><li>b8ced58 nice-to-have: Asian (path-dependent) option via the same circuits</li><li>ea96b96 end-to-end demo + README: 3-way benchmark on Nokia (honest QSVT, query-complexity plot)</li><li>9757be2 benchmark: query-complexity plot (analytic MC O(1/eps^2) vs QAE O(1/eps))</li><li>aa50f14 Q50 hardware runner: shallow Fourier route, IQM-transpiled, noisy-price report</li><li>8cf5d5f benchmark harness: error-vs-queries + IQM CZ-depth resource table</li><li>ed7ecc9 QSVT: honest straddle + put-call parity (remove answer-calibration)</li></ul>
+          </div>
+        </div>
+      </div></div>
+  </div>
+</main>
+</body>
+</html>
