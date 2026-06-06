@@ -46,12 +46,12 @@ The pricer scripts need the pricer venv + network (yfinance):
   Greek-paper SOTA oracle-QAE (Stamatopoulos), and our QNDM-QAE + QSVT — all real runs,
   finite shots, seed-averaged. This is the figure that puts QSVT and the Greek baseline on
   the same speedup axes.
-- **Read:** our **QNDM-QAE** gets the ideal quantum slope (**−0.99**) and the lowest error;
-  the **Greek SOTA** floors high (~0.2) at its rescaling-linearization bias; **QSVT** floors
-  at its polynomial-degree bias (~0.02); **MC** scales ~−0.5.
+- **Read:** our **QNDM-QAE** gets the steepest, ideal-quantum slope (**~−1.1**) and the lowest
+  error; **QSVT** ~−0.8 (toward its degree floor ~0.02); the **Greek SOTA** floors high (~0.2)
+  at its rescaling-linearization bias; **MC** scales ~−0.6.
 - **Caveat:** each error is vs the value that method estimates (ours/MC → exact tree; Greek →
   its discretized lognormal). Floors are model biases, not estimation noise.
-- **Regenerate:** `results/speedup_compare.py` (~6–8 min; writes `speedup_compare.json`).
+- **Regenerate:** `results/speedup_compare.py` (5 seeds, ~10–13 min; writes `speedup_compare.json`).
 
 ### `complexity.png`  — query-complexity advantage (theory)
 - **What:** queries to reach accuracy ε: MC O(1/ε²) (slope 2.0) vs QAE O(1/ε) (slope 1.0).

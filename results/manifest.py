@@ -96,10 +96,10 @@ TRACKS = [
             "speedup_compare.png": ("Head-to-head empirical speedup: estimation error vs oracle "
                                     "queries/samples for Monte Carlo, the Greek-paper SOTA oracle-QAE "
                                     "(Stamatopoulos), and our QNDM-QAE + QSVT. Our QNDM-QAE hits the "
-                                    "ideal quantum slope (-0.99) and the lowest error; the Greek SOTA "
-                                    "floors high (~0.2) at its rescaling-linearisation bias; QSVT "
-                                    "floors at its polynomial-degree bias (~0.02); MC scales ~-0.5. "
-                                    "Finite shots, seed-averaged - all real runs."),
+                                    "steepest, ideal-quantum slope (~-1.1) and the lowest error; QSVT "
+                                    "~-0.8 (toward its polynomial-degree floor ~0.02); the Greek SOTA "
+                                    "floors high (~0.2) at its rescaling-linearisation bias; MC ~-0.6. "
+                                    "Finite shots (100), averaged over 5 seeds - all real runs."),
             "complexity.png": ("Query complexity to reach accuracy eps: MC O(1/eps^2) vs "
                                "QAE O(1/eps) - the textbook quadratic separation (analytic "
                                "theory curves; cite Montanaro 2015)."),

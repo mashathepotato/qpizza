@@ -33,7 +33,7 @@ P = dict(S0=13.09, K=13.09, r=0.03, sigma=0.479, T=1.0)
 M = 3
 EPS = [0.12, 0.06, 0.03, 0.015, 0.008]
 MC_N = [250, 1000, 4000, 16000, 64000, 256000]
-SEEDS = 3
+SEEDS = 5
 SHOTS = 100
 QSVT_DEGREE = 60
 FIG = os.path.join(os.path.dirname(__file__), "figures", "speedup_compare.png")
