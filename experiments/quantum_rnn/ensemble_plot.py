@@ -15,7 +15,11 @@ Run:  ./quantum_pricer/.venv/bin/python experiments/quantum_rnn/ensemble_plot.py
 Saves ensemble_predictions.png next to this script.
 """
 import os
+os.environ.setdefault("OMP_NUM_THREADS", "1")     # pin BLAS threads BEFORE numpy/torch import
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 import sys
+import csv
+import json
 
 import numpy as np
 import torch
@@ -47,6 +51,7 @@ LR = 0.05
 WD = 1e-2
 SEEDS = range(5)          # each neural expert seed-averaged (deep ensemble) for stable lines
 OUT = os.path.join(HERE, "ensemble_predictions.png")
+EXPORT_DIR = os.path.join(HERE, "ensemble_export")   # raw plot data for teammates
 
 CLASSICAL = [("RNN", cr.RNNClassifier), ("GRU", cr.GRUClassifier),
              ("LSTM", cr.LSTMClassifier), ("Transformer", TransformerClassifier)]
@@ -92,6 +97,7 @@ def main():
     tr, te = slice(0, n_train), slice(n_train, n)
     day = np.arange(L, L + n)[te]
     y_te = y[te]
+    next_abs_te = task["next_abs"][te]
 
     print("classical experts:")
     c_arrs, c_aucs = _neural_arrays(CLASSICAL, X, y, tr, te)
@@ -112,41 +118,97 @@ def main():
     print(f"QUANTUM   ensemble (4 NN)          AUC = {q_auc:.3f}  "
           f"(members mean {np.mean(list(q_aucs.values())):.3f})")
 
-    _plot(day, y_te, c_ens, q_ens, c_auc, q_auc, provenance)
+    _plot(day, prices, y_te, c_ens, q_ens, c_auc, q_auc, provenance)
     print(f"saved {OUT}")
+    _export(day, prices, y_te, next_abs_te, c_arrs, q_arrs, c_ens, q_ens,
+            c_aucs, q_aucs, c_auc, q_auc, task, provenance)
+    print(f"exported raw data -> {EXPORT_DIR}")
 
 
-def _plot(days, y_true, c_ens, q_ens, c_auc, q_auc, provenance):
-    c_col, q_col, ev_col = "#c44536", "#2a6f97", "#c44536"
-    fig, ax = plt.subplots(figsize=(12, 6))
+def _export(days, prices, y_te, next_abs_te, c_arrs, q_arrs, c_ens, q_ens,
+            c_aucs, q_aucs, c_auc, q_auc, task, provenance):
+    """Write the exact arrays behind the figure as plain CSV/JSON for re-plotting."""
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+    cnames, qnames = list(c_arrs), list(q_arrs)
+    cn = {nm: nrm(c_arrs[nm]) for nm in cnames}      # normalized member scores (feed the means)
+    qn = {nm: nrm(q_arrs[nm]) for nm in qnames}
+
+    with open(os.path.join(EXPORT_DIR, "ensemble_timeseries.csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["trading_day", "price_eur", "true_vol_event", "next_abs_return",
+                    "classical_ensemble_score", "quantum_ensemble_score"])
+        for i, d in enumerate(days):
+            w.writerow([int(d), f"{prices[d]:.6f}", int(y_te[i]), f"{next_abs_te[i]:.8f}",
+                        f"{c_ens[i]:.6f}", f"{q_ens[i]:.6f}"])
+
+    with open(os.path.join(EXPORT_DIR, "members_normalized.csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["trading_day"] + cnames + qnames)
+        for i, d in enumerate(days):
+            w.writerow([int(d)] + [f"{cn[nm][i]:.6f}" for nm in cnames]
+                       + [f"{qn[nm][i]:.6f}" for nm in qnames])
+
+    summary = dict(
+        provenance=provenance, ticker="NOKIA.HE", task="next-day top-decile |return| (vol event)",
+        sequence_length_L=L, train_frac=0.5, proxy_quantile=0.9,
+        n_windows=int(len(task["X"])), n_train=int(task["n_train"]),
+        n_test=int(len(days)), n_test_events=int(y_te.sum()),
+        neural_seeds=list(SEEDS), epochs=EPOCHS, lr=LR, weight_decay=WD,
+        classical_members=cnames, quantum_members=qnames,
+        member_auc={**{k: round(v, 3) for k, v in c_aucs.items()},
+                    **{k: round(v, 3) for k, v in q_aucs.items()}},
+        classical_ensemble_auc=round(c_auc, 3), quantum_ensemble_auc=round(q_auc, 3),
+        note=("Scores are min-max normalized per member over the test window, then "
+              "averaged uniformly within each family. Models predict next-day VOLATILITY, "
+              "not price. ~0.01 run-to-run AUC noise on retrain (BLAS); this file is the "
+              "canonical data for the committed figure."),
+    )
+    with open(os.path.join(EXPORT_DIR, "summary.json"), "w") as f:
+        json.dump(summary, f, indent=2)
+
+
+def _plot(days, prices, y_true, c_ens, q_ens, c_auc, q_auc, provenance):
+    ink, c_col, q_col, ev_col = "#22223b", "#c44536", "#2a6f97", "#c44536"
+    ev_days = days[y_true == 1]
+    fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(12, 8), sharex=True,
+                                   gridspec_kw=dict(height_ratios=[1, 1]))
+
+    # --- top: actual price, with true vol-event days marked ON the price ---
+    ax0.plot(days, prices[days], color=ink, lw=1.5, label="NOKIA.HE close")
+    ax0.scatter(ev_days, prices[ev_days], color=ev_col, s=30, zorder=5,
+                label="true vol event (next-day top-decile |return|)")
+    ax0.set_ylabel("price (EUR)")
+    ax0.set_title("Frozen-expert ensembles — classical (incl. GARCH) vs quantum "
+                  "(NOKIA.HE, held-out)")
+    ax0.legend(loc="upper left", fontsize=9.5)
+
+    # --- bottom: the two ensemble prediction scores, same event days shaded ---
     first = True
-    for d, yy in zip(days, y_true):
-        if yy == 1:
-            ax.axvspan(d - 0.5, d + 0.5, color=ev_col, alpha=0.16, lw=0,
-                       label="true vol event" if first else None)
-            first = False
-    ax.plot(days, c_ens, color=c_col, lw=2.0,
-            label=f"classical: 4 NN + GARCH  AUC {c_auc:.2f}")
-    ax.plot(days, q_ens, color=q_col, lw=2.0,
-            label=f"quantum: 4 NN  AUC {q_auc:.2f}")
-    ax.set_xlim(days[0], days[-1])
-    ax.set_ylim(-0.03, 1.03)
-    ax.set_xlabel("held-out trading day")
-    ax.set_ylabel("ensemble score (mean of normalized member predictions)")
-    ax.set_title("Frozen-expert ensembles — classical (incl. GARCH) vs quantum "
-                 "(NOKIA.HE, held-out)")
-    ax.legend(loc="upper left", fontsize=9.5)
-    cap = ("Classical = RNN/GRU/LSTM/Transformer (each seed-averaged over 5 seeds) + "
-           "GARCH(1,1); quantum = QRNN/QGRU/QLSTM/QTransformer. Each member's held-out "
-           "score min-max normalized to [0,1], then averaged uniformly (no learned gate). "
-           "Shaded = true top-decile next-day |return| days. The two ensembles track the "
-           f"same volatility-clustering bumps with near-identical AUC ({c_auc:.2f} vs "
-           f"{q_auc:.2f}) -- adding GARCH does not separate classical from quantum.")
+    for d in ev_days:
+        ax1.axvspan(d - 0.5, d + 0.5, color=ev_col, alpha=0.14, lw=0,
+                    label="true vol event" if first else None)
+        first = False
+    ax1.plot(days, c_ens, color=c_col, lw=2.0,
+             label=f"classical: 4 NN + GARCH  AUC {c_auc:.3f}")
+    ax1.plot(days, q_ens, color=q_col, lw=2.0,
+             label=f"quantum: 4 NN  AUC {q_auc:.3f}")
+    ax1.set_xlim(days[0], days[-1])
+    ax1.set_ylim(-0.03, 1.03)
+    ax1.set_ylabel("ensemble score (normalized)")
+    ax1.set_xlabel("held-out trading day")
+    ax1.legend(loc="upper left", fontsize=9.5)
+
+    cap = ("Top: actual NOKIA.HE price with the true volatility-event days (next-day "
+           "top-decile |return|) marked. Bottom: the model PREDICTIONS for those events "
+           "-- classical = RNN/GRU/LSTM/Transformer (seed-averaged) + GARCH(1,1), quantum "
+           "= QRNN/QGRU/QLSTM/QTransformer; each member min-max normalized then averaged "
+           "uniformly. Models predict next-day VOLATILITY, not price. Near-identical AUC "
+           f"({c_auc:.3f} vs {q_auc:.3f}) -- no classical/quantum separation.")
     if _HAVE_STYLE:
         style.caption(fig, cap)
         style.provenance(fig, provenance)
     else:
-        fig.text(0.5, -0.03, cap, ha="center", va="top", fontsize=8.4, style="italic", wrap=True)
+        fig.text(0.5, -0.02, cap, ha="center", va="top", fontsize=8.4, style="italic", wrap=True)
     fig.savefig(OUT, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
