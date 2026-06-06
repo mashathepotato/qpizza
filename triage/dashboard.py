@@ -43,9 +43,9 @@ _METHOD_COPY = {
             "problem."
         ),
         "good": (
-            "Good result: approximation ratio near 1.0 (matches the true "
-            "optimum), holding up as n grows where exact classical search gets "
-            "expensive; shallow enough to run on Q50."
+            "Good result: matches or beats a classical simulated-annealing "
+            "heuristic's solution quality, with the edge expected at larger n "
+            "where exact search is infeasible."
         ),
     },
     "fraud_qml": {

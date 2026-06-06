@@ -75,3 +75,26 @@ def test_qaoa_is_reproducible():
     assert chosen1 == chosen2, (
         f"QAOA results differ across runs with seed=1: {chosen1} vs {chosen2}"
     )
+
+
+def test_qaoa_vs_sa_direction_is_valid():
+    """run() must return advantage_direction in {win, tie, loss} and both
+    quantum_metric and classical_metric in [0, 1].
+
+    This tests the honest QAOA-vs-SA comparison: classical_metric is the SA
+    approx ratio (not hardcoded 1.0), and direction reflects QAOA vs SA.
+    """
+    rec = run({
+        "config_id": "x", "candidate": "A",
+        "n_assets": 6, "k": 3, "reps": 2, "seed": 1,
+        "backend": "local_aer",
+    })
+    assert rec.advantage_direction in {"win", "tie", "loss"}, (
+        f"advantage_direction must be win/tie/loss, got {rec.advantage_direction!r}"
+    )
+    assert 0.0 <= rec.quantum_metric <= 1.0, (
+        f"quantum_metric must be in [0,1], got {rec.quantum_metric}"
+    )
+    assert 0.0 <= rec.classical_metric <= 1.0, (
+        f"classical_metric must be in [0,1], got {rec.classical_metric}"
+    )

@@ -1,6 +1,6 @@
 import numpy as np
 from triage.baselines.mc import mc_samples_to_eps
-from triage.baselines.classical_opt import exact_portfolio
+from triage.baselines.classical_opt import exact_portfolio, sa_portfolio
 from triage.baselines.classical_kernel import rbf_svm_auc
 
 def test_mc_estimates_bernoulli_mean_within_eps():
@@ -21,3 +21,13 @@ def test_rbf_svm_separates_a_separable_toy():
     y = np.array([0] * 30 + [1] * 30)
     auc = rbf_svm_auc(X, y, seed=0)
     assert auc > 0.95
+
+def test_sa_portfolio_finds_good_solution():
+    # Asset 0 and 2 dominate: mu=[0.1, 0.01, 0.09], near-zero variance.
+    # A genuine SA with enough iters should find the exact optimum [0, 2].
+    mu = np.array([0.1, 0.01, 0.09])
+    cov = np.eye(3) * 1e-4
+    chosen, val = sa_portfolio(mu, cov, k=2, risk=1.0, seed=0, iters=2000)
+    assert sorted(chosen) == [0, 2], (
+        f"SA failed to find optimum [0, 2]; got {sorted(chosen)} (obj={val:.6f})"
+    )
