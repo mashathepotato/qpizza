@@ -187,7 +187,46 @@ def main():
     if qae_rms_slope is not None:
         print(f"  Fitted RMS slope  QAE          : {qae_rms_slope:.3f}  (expect -1.0)")
 
-    # ── 6. Summary ────────────────────────────────────────────────────────────
+    # ── 6. Hamming-weight depth-vs-M crossover + large-M price (headline) ──────
+    _banner("Step 6 — Hamming-weight depth crossover & large-M price")
+    from quantum_pricer.benchmark import (
+        depth_vs_M, save_depth_crossover_plot, large_m_price,
+    )
+    _CROSSOVER_PATH = os.path.join(_HERE, "depth_crossover.png")
+
+    print("  Phase-oracle CZ count after transpile to IQM {r,cz}: naive 2^M vs")
+    print("  Hamming-weight poly(M) (naive synthesis capped where 2^M is infeasible).")
+    # M_list capped at 16: naive synthesis runs through M=12 (naive_max_M), is
+    # recorded infeasible for 14-16, and the Hamming circuit transpiles in <2s each.
+    # (M=20 is omitted here only because the 26-qubit Hamming transpile is minutes-
+    # slow in the simulator -- the crossover/infeasibility is already shown by M<=16.)
+    crows = depth_vs_M([4, 6, 8, 10, 12, 14, 16])
+    save_depth_crossover_plot(crows, path=_CROSSOVER_PATH)
+    print(f"\n  {'M':>3}  {'naive CZ':>10}  {'Hamming CZ':>11}  Note")
+    print(f"  {'-'*3}  {'-'*10}  {'-'*11}  {'-'*16}")
+    crossover_M = None
+    for row in crows:
+        nz = row["naive_cz"]
+        nz_s = f"{nz:>10}" if nz is not None else f"{'(infeasible)':>10}"
+        print(f"  {row['M']:>3}  {nz_s}  {row['hamming_cz']:>11}  {row['note']}")
+        if crossover_M is None and nz is not None and row["hamming_cz"] < nz:
+            crossover_M = row["M"]
+    if crossover_M is not None:
+        print(f"\n  Crossover: Hamming CZ < naive CZ from M={crossover_M} onward.")
+
+    print(f"\n  Large-M price (Hamming-weight statevector; naive route cannot build it):")
+    # M=14 -> 19 qubits; the per-lambda statevector loop costs ~20s here. (large_m_price
+    # also runs at M=16/18 -- 21/24 qubits -- but those are minutes-slow in simulation.)
+    lm = large_m_price(M=14)
+    print(f"    M={lm['M']}  qubits={lm['n_qubits']}  "
+          f"Hamming price={lm['hamming_price']:.6f}  "
+          f"exact (O(M) tree)={lm['exact_price']:.6f}  "
+          f"abs error={lm['abs_error']:.6f}")
+    print(f"    naive infeasible at this M: the naive oracle is a 2^{lm['M']} = "
+          f"{2**lm['M']:,}-entry diagonal.")
+    print(f"  Saved crossover plot  : {_CROSSOVER_PATH}")
+
+    # ── 7. Summary ────────────────────────────────────────────────────────────
     _banner("Summary")
     src_label = "LIVE yfinance" if meta["source"] == "yfinance" else "SYNTHETIC (offline fallback)"
     print(f"  Data source     : {src_label}")
@@ -204,6 +243,12 @@ def main():
     print("  Figures saved:")
     print(f"    {_COMPLEXITY_PATH}")
     print(f"    {_SPEEDUP_PATH}")
+    print(f"    {_CROSSOVER_PATH}")
+    print()
+    print("  HEADLINE: Hamming-weight phase oracle keeps poly(M) CZ count where the")
+    print("    naive 2^M oracle becomes infeasible to synthesize; large-M price")
+    print(f"    (M={lm['M']}, {lm['n_qubits']} qubits) matches the exact tree to "
+          f"{lm['abs_error']:.1e}.")
     print()
     print("  HONESTY NOTES:")
     print("    * QSVT measures the straddle E[|f-K|] and recovers the call via")
