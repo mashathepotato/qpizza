@@ -11,7 +11,7 @@ import numpy as np
 from qiskit import transpile
 from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
-from quantum_pricer import oracles, tree
+from quantum_pricer import hamming, oracles, tree
 
 
 def _g_exact(qc_x, qc_y):
@@ -45,16 +45,41 @@ def estimate_G(M, angles, values, K, lambdas, shots=None, seed=None):
     return out
 
 
+def estimate_G_hamming(M, angles, ST_by_weight, K, lambdas, shots=None, seed=None):
+    """Hamming-weight European analogue of estimate_G: poly(M)-depth Fourier
+    circuit acting on a log-sized weight register. Detector is the last qubit, so
+    the same _g_exact / _g_shots readout applies."""
+    sim = AerSimulator() if shots else None
+    out = np.empty(len(lambdas), dtype=complex)
+    for j, lam in enumerate(lambdas):
+        qc_x = hamming.fourier_circuit_hamming(M, angles, ST_by_weight, K, lam, basis="X")
+        qc_y = hamming.fourier_circuit_hamming(M, angles, ST_by_weight, K, lam, basis="Y")
+        out[j] = _g_exact(qc_x, qc_y) if shots is None \
+            else _g_shots(qc_x, qc_y, shots, sim, seed)
+    return out
+
+
 def price(S0, K, r, sigma, T, M, option="european", kind="call",
-          n_lambda=24, shots=None, seed=None):
+          n_lambda=24, shots=None, seed=None, use_hamming=False):
     angles = tree.loading_angles(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M)
-    values = tree.payoff_variable_values(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
-                                         option=option)
+    if use_hamming:
+        assert option == "european", "Hamming-weight route is European-only"
+        # On a recombining tree S_T depends only on the up-count w; the M+1 distinct
+        # ST_by_weight values are exactly the recovery support.
+        ST_by_weight = hamming.terminal_values_by_weight(S0=S0, K=K, r=r, sigma=sigma,
+                                                         T=T, M=M)
+        values = ST_by_weight
+    else:
+        values = tree.payoff_variable_values(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                                             option=option)
     distinct = np.unique(np.round(values, 9))        # tree support of f
     # lambda grid scaled to the spread of (f-K) so phases stay informative
     spread = max(distinct.max() - distinct.min(), 1e-6)
     lambdas = np.linspace(-np.pi, np.pi, n_lambda) / spread
-    G = estimate_G(M, angles, values, K, lambdas, shots=shots, seed=seed)
+    if use_hamming:
+        G = estimate_G_hamming(M, angles, ST_by_weight, K, lambdas, shots=shots, seed=seed)
+    else:
+        G = estimate_G(M, angles, values, K, lambdas, shots=shots, seed=seed)
     # Recover p_v on the known support: G(lam) = sum_v p_v e^{i lam (v-K)}
     A = np.exp(1j * np.outer(lambdas, distinct - K))   # (n_lambda, n_support)
     p_v, *_ = np.linalg.lstsq(A, G, rcond=None)

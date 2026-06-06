@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
-from quantum_pricer import hamming, oracles, tree
+from quantum_pricer import fourier, hamming, oracles, tree
 
 
 def test_counter_computes_popcount(base_params):
@@ -82,3 +82,32 @@ def test_hamming_price_matches_exact_tree(base_params):
 
     expected = tree.exact_tree_price(M=M, option="european", kind="call", **base_params)
     assert np.isclose(price, expected, atol=1e-6)
+
+
+def test_fourier_price_use_hamming_matches_exact_and_naive(base_params):
+    """fourier.price(use_hamming=True) tracks the exact tree (statevector path) and
+    matches the naive Fourier price."""
+    M = 4
+    exact = tree.exact_tree_price(M=M, option="european", kind="call", **base_params)
+    price_h = fourier.price(M=M, option="european", kind="call",
+                            n_lambda=24, shots=None, use_hamming=True, **base_params)
+    price_n = fourier.price(M=M, option="european", kind="call",
+                            n_lambda=24, shots=None, use_hamming=False, **base_params)
+    assert abs(price_h - exact) < 1e-3
+    assert abs(price_h - price_n) < 1e-6
+
+
+def test_qae_price_use_hamming_matches_exact_and_naive(base_params):
+    """qae.price(use_hamming=True) tracks the exact tree and matches the naive QAE."""
+    qae = pytest.importorskip("quantum_pricer.qae", exc_type=ImportError)
+    M = 4
+    exact = tree.exact_tree_price(M=M, option="european", kind="call", **base_params)
+    res_h = qae.price(M=M, option="european", kind="call",
+                      epsilon_target=0.01, use_hamming=True, **base_params)
+    res_n = qae.price(M=M, option="european", kind="call",
+                      epsilon_target=0.01, use_hamming=False, **base_params)
+    assert abs(res_h["price"] - exact) < 0.05
+    assert res_h["num_oracle_queries"] > 0
+    # same A-operator amplitude up to IAE sampling noise -> same Cmax, close price
+    assert np.isclose(res_h["Cmax"], res_n["Cmax"], atol=1e-9)
+    assert abs(res_h["price"] - res_n["price"]) < 0.05
