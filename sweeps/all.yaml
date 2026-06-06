@@ -16,6 +16,7 @@ all:
     - {config_id: b_eps_02, candidate: B, p: 0.3, epsilon: 0.02, backend: local_aer}
     # Tight eps: the measured 1/eps vs 1/eps^2 crossover (~eps 0.015) -> quantum win.
     - {config_id: b_eps_01, candidate: B, p: 0.3, epsilon: 0.01, backend: local_aer}
+    - {config_id: opt_call_01, candidate: B, mode: european_call, epsilon: 0.01, backend: local_aer}
     - {config_id: b_eps_005, candidate: B, p: 0.3, epsilon: 0.005, backend: local_aer}
     - {config_id: e_eps_05, candidate: E, p: 0.1, epsilon: 0.05, backend: local_aer}
     - {config_id: e_eps_02, candidate: E, p: 0.1, epsilon: 0.02, backend: local_aer}

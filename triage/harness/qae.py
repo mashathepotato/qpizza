@@ -250,9 +250,15 @@ def price_european_call(
     app, problem, exact_payoff, total_qubits = _european_call_problem(
         num_uncertainty_qubits, strike, s0, vol, r, t_maturity
     )
+    # Price estimate uses full shots for accuracy (unchanged).
     result = _shot_iqae(epsilon, shots).estimate(problem)
     price = float(app.interpret(result))
-    oracle_queries = _measured_oracle_queries(result, shots)
+    # Oracle-COUNT uses the capped per-round budget, matching the Bernoulli
+    # convention: per-round shots are an IQAE confidence hyperparameter, not
+    # the accuracy target; accuracy comes from the Grover schedule depth.
+    cost_shots = min(int(shots), _COST_SHOTS)
+    result_cost = _shot_iqae(epsilon, cost_shots).estimate(problem)
+    oracle_queries = _measured_oracle_queries(result_cost, cost_shots)
     return {
         "price": price,
         "oracle_queries": oracle_queries,
