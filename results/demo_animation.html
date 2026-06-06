@@ -144,6 +144,7 @@ RENDERERS[1] = function(el){
 function routeColor(name){
   const s=name.toLowerCase();
   if(s.includes('sota')) return 'var(--sota)';
+  if(s.includes('black')||s.includes('scholes')) return 'var(--classical)';
   if(s.includes('monte')) return 'var(--classical)';
   if(s.includes('qsvt')) return 'var(--qsvt)';
   return 'var(--quantum)';
@@ -205,6 +206,56 @@ RENDERERS[3] = function(el){ // renderAct3
    + 'error-per-query). The QAE lead appears only at tight accuracy. QSVT carries a polynomial '
    + 'approximation <b>floor</b> (~1–2%) and plateaus rather than reaching zero.</p>';
 };
+
+function sotaRow(){ const R=DATA.results; if(!R) return null;
+  return R.routes.find(rt=>rt.name.toLowerCase().includes('sota')); }
+function oursBest(){ const R=DATA.results; if(!R) return null;
+  return R.routes.filter(rt=>rt.group==='ours')
+          .sort((a,b)=>Math.abs(a.abs_err)-Math.abs(b.abs_err))[0]; }
+function hwBadge(){
+  const hw = DATA.hw || {status:'pending', backend:'Q50'};
+  const done = hw.status==='done';
+  const color = done? 'var(--quantum)':'var(--muted)';
+  const txt = done ? (hw.backend+' ✓ €'+(hw.price!=null?hw.price.toFixed(4):'?')
+                      +' (abs err '+(hw.abs_error!=null?hw.abs_error.toFixed(4):'?')+')')
+                   : (hw.backend+' · pending (awaiting hardware run)');
+  return '<span class="label" style="color:'+color+'">● '+txt+'</span>';
+}
+
+// ---- Act 4: beat the textbook + real hardware ------------------------------
+RENDERERS[4] = function(el){ // renderAct4
+  const sota=sotaRow(), ours=oursBest();
+  let cmp = (sota&&ours)
+    ? 'Our best route abs-error <span class="num">'+Math.abs(ours.abs_err).toFixed(4)
+      +'</span> vs Qiskit-Finance oracle-QAE (SOTA) <span class="num">'
+      +Math.abs(sota.abs_err).toFixed(4)+'</span> — same ground truth, fewer assumptions.'
+    : 'results.json not loaded.';
+  el.innerHTML =
+    '<h1>Beat the textbook — and run it on real hardware</h1>'
+   +'<p class="cap">'+cmp+'</p>'
+   +'<div class="panel" style="display:inline-block">'
+   +'<div class="label">Q50 hardware</div>'+hwBadge()+'</div>';
+};
+
+// ---- Cockpit (mode A): everything at once ----------------------------------
+function renderCockpit(el){
+  const R=DATA.results, c=DATA.conv;
+  const rows = R ? R.routes.map(rt=>'<div>'+rt.name+' — €'+rt.price.toFixed(4)
+        +' ('+(rt.queries==null?'exact':rt.queries.toLocaleString()+'q')+')</div>').join('') : '';
+  el.innerHTML =
+    '<div class="panel"><div class="label">stock + 2^M tree</div>'
+   +'<div id="ck-stock"></div></div>'
+   +'<div class="panel"><div class="label">race leaderboard</div>'+rows+'</div>'
+   +'<div class="panel"><div class="label">convergence (queries → error)</div>'
+   +'<div id="ck-conv"></div></div>'
+   +'<div class="panel"><div class="label">Q50 hardware</div>'+hwBadge()
+   +'<div class="label" style="margin-top:8px">slopes: MC '
+   +(c&&c.slopes.classical_mc!=null?c.slopes.classical_mc.toFixed(2):'?')+' · QAE '
+   +(c&&c.slopes.qae!=null?c.slopes.qae.toFixed(2):'?')+'</div></div>';
+  // reuse the act renderers inside the panels
+  if(RENDERERS[0]) RENDERERS[0](document.getElementById('ck-stock'));
+  if(RENDERERS[3]) RENDERERS[3](document.getElementById('ck-conv'));
+}
 
 loadData().then(show);
 </script>

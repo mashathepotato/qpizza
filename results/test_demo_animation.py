@@ -41,3 +41,11 @@ def test_acts_3_4_have_race_and_speedup_with_honesty_labels():
     assert "not wall-clock" in h.lower() or "not time" in h.lower()
     # QSVT honesty: plateau / floor mentioned
     assert "floor" in h.lower() or "plateau" in h.lower()
+
+
+def test_act5_and_cockpit_and_hardware_badge():
+    h = _html()
+    assert "renderAct4" in h and "renderCockpit" in h
+    assert "q50" in h.lower()
+    assert "pending" in h.lower()       # badge default state
+    assert "beat the textbook" in h.lower() or "vs sota" in h.lower() or "oracle-qae" in h.lower()
