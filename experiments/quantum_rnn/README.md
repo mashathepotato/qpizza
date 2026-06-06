@@ -74,6 +74,8 @@ before believing a surprising win) is part of the result.
 - `ar_baseline.py` — `garch_forecast`, `ar_abs_forecast`.
 - `baselines.py` — persistence + logistic.
 - `run_rnn_bench.py` — the benchmark → `rnn_benchmark.png`.
+- `predictions_plot.py` — every model's per-day held-out prediction overlaid vs the
+  true vol-event days → `predictions_per_day.png` (v1 static; animation is future work).
 - `test_*.py` — 41 unit tests (harness, every recurrent + transformer cell, baselines).
 - `requirements.txt` — `torch`, `pennylane`, `arch`.
 
