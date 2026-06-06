@@ -45,6 +45,7 @@ TRACKS = [
         "figure": _p("results", "figures", "price_forecast.png"),
         "extra_figures": [
             _p("results", "figures", "backtest_rolling.png"),
+            _p("results", "figures", "backtest_drift_compare.png"),
             _p("results", "figures", "backtest_routes_timeseries.png"),
             _p("results", "figures", "backtest_walkforward.png"),
             _p("results", "figures", "model_results.png"),
@@ -68,6 +69,13 @@ TRACKS = [
                                      "because the risk-neutral forecast under-shoots the realized "
                                      "uptrend. The 4 routes differ only in OPTION price, not this "
                                      "underlying forecast."),
+            "backtest_drift_compare.png": ("Drift choice, side by side (underlying-price prediction). "
+                                           "Left = risk-neutral drift r (the pricing measure): flat-"
+                                           "centred cone under-shoots the rally, error dives negative "
+                                           "(MAE 0.93 EUR, 67% coverage). Right = real-world mu_hat "
+                                           "estimated per window: the cone chases the trend, lower "
+                                           "error (MAE 0.74) but noisier and overshoots reversals "
+                                           "(57% coverage). Honest tradeoff; M=8 sliding windows."),
             "backtest_routes_timeseries.png": ("Full verification: an ATM call priced on EVERY "
                                                "one of the 192 sliding windows with all four routes "
                                                "(real circuit runs, no analytic shortcut). Top: price "
