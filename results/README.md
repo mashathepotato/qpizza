@@ -32,3 +32,20 @@ at the path), re-run the build. To add headline cards, append to `manifest.SUMMA
 | cognition | `quantum_investor/figure.png` (regenerated) | parameter-free QQ-equality, q = −0.003 |
 | pricer | `quantum_pricer/*.png` (collected) | O(1/ε) vs O(1/ε²) query complexity |
 | triage | `.claude/worktrees/triage-lab/triage/plots/qae_scaling.png` (collected) | QAE slope −1 vs MC −2 |
+
+## Animated pricing-race demo
+
+1. Export the real data (once, or after new pricer runs):
+   `quantum_pricer/.venv/bin/python -m results.export_demo_data`
+   → writes `prices.json`, `convergence.json`, `hardware.json`.
+2. Open `results/demo_animation.html` in a browser. ←/→/space move through the 5 acts;
+   press **E** for the explore cockpit. Works fully offline from `file://`.
+3. (Optional) live mode: `quantum_pricer/.venv/bin/python -m results.live_server`,
+   then reload — adds "⟳ re-run" buttons. If the server is down the demo is unchanged.
+4. Q50 hardware: a teammate overwrites `results/hardware.json` with
+   `{"status":"done","backend":"Q50","route":"fourier","price":<p>,"abs_error":<e>,"shots":<n>}`;
+   the act-5 badge and cockpit then light up green. Until then it reads "pending".
+
+Honesty: the convergence/race axis is **oracle queries / samples, not wall-clock time**;
+the QAE lead appears at tight accuracy; QSVT plateaus at its polynomial-approx floor;
+ground truth is the exact CRR tree price.
