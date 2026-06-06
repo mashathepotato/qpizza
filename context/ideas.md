@@ -72,6 +72,21 @@ detail + citations + scoring table in `literature-review.md`. Ranked shortlist:
 **Suggested play:** A or B for the wow-factor, C as the reliable demo — or fuse them
 (tensor-net-structured qGAN→QAE pipeline, or a noise-aware CVaR engine).
 
+### Pressure-test verdicts (see `pressure-test.md` — A, C, F checked in depth)
+- **A (tensor-net ansatz) ✅ TOP PICK** — novelty confirmed (narrow: first qTTN/qMERA ansatz
+  for portfolio/CVaR). Headline question: *does the barren-plateau advantage survive the
+  all-to-all portfolio QUBO, or only local Hamiltonians?* Finishable; can't-fail fallback =
+  the gradient-variance scaling plot alone. **Build this.**
+- **C (qGAN→QAE) ⚠️** — buildable + reliable demo, but novelty thin (regime-switching+QAE,
+  non-log-normal qGAN, barrier QAE all published — cite them yourself). #1 risk = Qiskit
+  library breakage (old `QGAN` class removed → use PyTorch qGAN; pin versions hour 0). Use as
+  safe core/fallback, framed as integration + honest characterization.
+- **F (quantum reservoir) ❌** — the exact idea (QRC for realized volatility) is already
+  peer-reviewed (Li et al., Phys. Rev. Research, arXiv:2505.13933). Only viable if reframed to
+  regime-detection + a critical QRC-vs-classical-ESN study. Classical baseline likely wins at
+  NISQ scale. Lower priority.
+- **B (noise→CVaR)** — not yet pressure-tested; still promising on paper.
+
 ---
 
 ## Decision (fill in at event)
