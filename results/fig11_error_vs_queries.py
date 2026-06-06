@@ -33,6 +33,17 @@ def _fit(xs, ys):
     return float(np.polyfit(np.log(xs), np.log(ys), 1)[0]) if len(xs) >= 2 else float("nan")
 
 
+def _qsvt_floor_from_csv():
+    """Read QSVT mean |error| from the already-computed verify_backtest.csv.
+    No simulation needed — this is the polynomial-approximation floor measured
+    across 191 real-circuit windows."""
+    import csv as _csv
+    path = os.path.join(os.path.dirname(__file__), "verify_backtest.csv")
+    rows = list(_csv.DictReader(open(path)))
+    errs = [abs(float(r["QSVT"]) - float(r["exact"])) for r in rows]
+    return float(sum(errs) / len(errs))
+
+
 def main():
     style.apply_style()
     rows = error_vs_queries_rms(**PARAMS, seeds=8)
@@ -80,6 +91,10 @@ def main():
         ax.loglog(qae_th_x, qae_th_y, ":", color=style.PALETTE["accent"], linewidth=1.6,
                   label=r"AE ideal $\varepsilon=\pi/2M$ (slope -1.00)")
 
+    # QSVT: polynomial-approximation floor — not query-scalable.
+    # No simulation needed; value read from verify_backtest.csv (191 real windows).
+    qsvt_floor = _qsvt_floor_from_csv()
+
     # Reference slope guides (-1 and -1/2) anchored to the data span
     all_x = list(mc_x) + list(qae_emp_x) + list(qae_th_x)
     if all_x:
@@ -90,12 +105,20 @@ def main():
             yref = ymax * (xref / x0) ** slope
             ax.loglog(xref, yref, color=style.PALETTE["muted"], linewidth=0.8,
                       alpha=0.5, zorder=0)
+        # QSVT horizontal floor line
+        ax.axhline(qsvt_floor, color=style.PALETTE["accent"], linewidth=1.4,
+                   linestyle="--", alpha=0.85, zorder=2,
+                   label=f"QSVT poly-approx floor  {qsvt_floor:.2e}  (degree 40, not query-scalable)")
+        ax.annotate("QSVT floor\n(poly-approx, deg 40)",
+                    xy=(x1 * 0.6, qsvt_floor), xytext=(x1 * 0.15, qsvt_floor * 2.5),
+                    fontsize=8, color=style.PALETTE["accent"],
+                    arrowprops=dict(arrowstyle="->", color=style.PALETTE["accent"], lw=0.9))
 
     ax.set_xlabel("Number of samples / oracle queries  M")
     ax.set_ylabel(r"Estimation error  $\varepsilon$")
     ax.set_title("Estimation error vs queries (cf. Stamatopoulos et al. 2020, Fig. 11)")
-    ax.legend(loc="lower left")
-    style.provenance(fig, "quantum_pricer (QNDM+QAE) on NOKIA.HE ATM call; "
+    ax.legend(loc="lower left", fontsize=8.5)
+    style.provenance(fig, "quantum_pricer (QNDM+QAE+QSVT) on NOKIA.HE ATM call; "
                           "cf. arXiv:1905.02666 Fig. 11")
     fig.tight_layout()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -108,6 +131,7 @@ def main():
               "(empirical, finite-shot)")
     if qae_th_x:
         print("QAE  saturated -> theory line pi/2M overlaid")
+    print(f"QSVT floor: {qsvt_floor:.3e}  (from verify_backtest.csv, 191 windows)")
     print("[saved]", OUT)
 
 
