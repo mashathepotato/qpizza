@@ -47,3 +47,50 @@ def test_dashboard_shows_scaling_curve_with_multiple_records(tmp_path):
     assert html.count("data:image/png;base64,") > 1
     # the scaling caption names the swept axis
     assert "scaling across epsilon" in html
+
+
+def test_dashboard_has_explanatory_content(tmp_path):
+    """The dashboard must contain how-to-read panel, good-result copy,
+    score-formula reference, and glossary terms."""
+    recs = [
+        _rec("qae", metric_name="samples_to_eps",
+             quantum_metric=100.0, classical_metric=400.0,
+             advantage_direction="win"),
+        _rec("fraud_qml", metric_name="auc",
+             quantum_metric=0.95, classical_metric=0.90,
+             advantage_direction="win"),
+    ]
+    out = tmp_path / "dash.html"
+    render(recs, tmp_path / "plots", out, 2, 5)
+    html = out.read_text()
+
+    # How-to-read panel
+    assert "adversarial" in html.lower() or "How to read" in html
+
+    # Good-result copy present for at least one method
+    assert "Good result" in html
+
+    # Score-formula mention (measured-advantage weight)
+    assert "0.45" in html
+
+    # Glossary terms
+    assert "approx_ratio" in html
+    assert "samples_to_eps" in html
+    assert "auc" in html or "ROC-AUC" in html
+
+
+def test_card_interprets_result_in_plain_language(tmp_path):
+    """For a qae win with quantum=10, classical=100, samples_to_eps metric,
+    the ratio 100/10 = 10x must appear in the rendered card."""
+    rec = _rec(
+        "qae",
+        metric_name="samples_to_eps",
+        quantum_metric=10.0,
+        classical_metric=100.0,
+        advantage_direction="win",
+    )
+    out = tmp_path / "dash.html"
+    render([rec], tmp_path / "plots", out, 1, 3)
+    html = out.read_text()
+    # The plain-language interpretation line must mention "10x fewer" or "10.0x fewer"
+    assert "10x fewer" in html or "10.0x fewer" in html
