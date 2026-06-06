@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Madness of People Is Quantum — Quantum Investor</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#11182f; --card:#161f3d; --card2:#1c2950;
+    --ink:#eaf0ff; --muted:#9fb0d4; --line:#2a3760;
+    --acc:#7c5cff; --acc2:#23d5c8; --warn:#ffb454; --bad:#ff6b81; --good:#46d39a;
+    --grad:linear-gradient(135deg,#7c5cff,#23d5c8);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 800px at 80% -10%,#1b2350 0,transparent 60%),var(--bg);
+    background-color:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px 90px}
+  header.hero{padding:70px 22px 50px;text-align:center;
+    background:radial-gradient(900px 500px at 50% -40%,rgba(124,92,255,.35),transparent 60%)}
+  .kicker{letter-spacing:.28em;text-transform:uppercase;font-size:12px;color:var(--acc2);font-weight:700}
+  h1{font-size:clamp(34px,6vw,62px);line-height:1.02;margin:14px auto 8px;max-width:14ch;
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
+  .sub{color:var(--muted);font-size:clamp(16px,2.2vw,20px);max-width:62ch;margin:10px auto 0}
+  .quotes{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin:38px auto 0;max-width:900px}
+  .quote{flex:1 1 360px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;text-align:left}
+  .quote .who{font-weight:700;color:var(--acc2);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+  .quote p{font-size:18px;margin:8px 0 0;font-style:italic}
+  .vs{align-self:center;font-weight:800;color:var(--muted);font-size:14px}
+  h2{font-size:clamp(24px,3.6vw,34px);margin:64px 0 6px;font-weight:800}
+  h2 .num{color:var(--acc);font-variant-numeric:tabular-nums;margin-right:10px}
+  h3{font-size:20px;margin:26px 0 6px}
+  p.lead{color:var(--muted);font-size:17px;margin:4px 0 18px;max-width:74ch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin:16px 0}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:780px){.g2,.g3{grid-template-columns:1fr}}
+  .pill{display:inline-block;background:var(--card2);border:1px solid var(--line);color:var(--acc2);
+    font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;letter-spacing:.04em}
+  .big{font-size:21px;font-weight:700;line-height:1.35}
+  .acc{color:var(--acc2)} .purple{color:#b9a6ff} .muted{color:var(--muted)}
+  ul.clean{list-style:none;padding:0;margin:10px 0}
+  ul.clean li{padding:9px 0 9px 30px;position:relative;border-bottom:1px solid rgba(255,255,255,.05)}
+  ul.clean li:before{content:"";position:absolute;left:4px;top:16px;width:9px;height:9px;border-radius:50%;
+    background:var(--grad)}
+  .callout{border-left:4px solid var(--warn);background:rgba(255,180,84,.08);border-radius:0 12px 12px 0;padding:16px 20px;margin:18px 0}
+  .callout.good{border-color:var(--good);background:rgba(70,211,154,.08)}
+  .callout b{color:var(--warn)} .callout.good b{color:var(--good)}
+  /* viz */
+  .viz{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center}
+  canvas{max-width:100%}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .bar-row{display:flex;align-items:center;gap:12px;margin:10px 0}
+  .bar-row .lbl{width:120px;font-size:14px;color:var(--muted)}
+  .bar{height:26px;border-radius:7px;flex:1;position:relative;background:rgba(255,255,255,.05)}
+  .bar>span{position:absolute;left:0;top:0;bottom:0;border-radius:7px}
+  /* timeline */
+  .phase{display:flex;gap:0;margin:14px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+  .phase .time{flex:0 0 120px;background:var(--card2);padding:16px 14px;font-weight:800;border-right:1px solid var(--line)}
+  .phase .time small{display:block;color:var(--muted);font-weight:500;font-size:12px;margin-top:3px}
+  .phase .body{padding:14px 18px;flex:1}
+  .phase .body h4{margin:0 0 8px;font-size:16px}
+  .who-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;letter-spacing:.03em}
+  .t-phy{background:rgba(35,213,200,.16);color:#7af0e6;border:1px solid rgba(35,213,200,.4)}
+  .t-cs{background:rgba(124,92,255,.16);color:#c7b8ff;border:1px solid rgba(124,92,255,.4)}
+  .t-all{background:rgba(255,180,84,.14);color:#ffce8f;border:1px solid rgba(255,180,84,.4)}
+  .rest{background:repeating-linear-gradient(45deg,#10172e 0,#10172e 12px,#141d38 12px,#141d38 24px)}
+  .rest .body{color:var(--muted)}
+  .chk{font-size:13px;color:var(--good);font-weight:700;margin-top:6px}
+  .mustnice{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  @media(max-width:780px){.mustnice{grid-template-columns:1fr}}
+  .box{border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .box.must{border-color:rgba(70,211,154,.5)} .box.nice{border-color:rgba(124,92,255,.45)}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:60px;border-top:1px solid var(--line);padding-top:24px}
+  a{color:var(--acc2)}
+  .scoregrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+  @media(max-width:780px){.scoregrid{grid-template-columns:1fr 1fr}}
+  .score{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .score .pct{font-size:13px;color:var(--acc);font-weight:800}
+  .step{counter-increment:s;position:relative;padding:14px 0 14px 52px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .step:before{content:counter(s);position:absolute;left:0;top:12px;width:34px;height:34px;border-radius:10px;
+    background:var(--grad);color:#0b1020;font-weight:800;display:grid;place-items:center}
+  .steps{counter-reset:s}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">Junction Helsinki × OP Pohjola — Quantum for Finance</div>
+  <h1>The Madness of People Is Quantum</h1>
+  <p class="sub">Two famous quotes — one from Newton, one from Feynman — sound unrelated. They're actually the
+  same sentence. And resolving them is real, published science you can run on a few qubits.</p>
+
+  <div class="quotes">
+    <div class="quote">
+      <div class="who">Isaac Newton · 1720</div>
+      <p>"I can calculate the motion of the heavenly bodies, but not the madness of people."</p>
+      <div class="muted" style="font-style:normal;font-size:13px;margin-top:8px">…said after losing a fortune in the South Sea Bubble.</div>
+    </div>
+    <div class="vs">⟷</div>
+    <div class="quote">
+      <div class="who">Richard Feynman</div>
+      <p>"If you think you understand quantum mechanics, you don't understand quantum mechanics."</p>
+      <div class="muted" style="font-style:normal;font-size:13px;margin-top:8px">…classical intuition is the wrong tool for some systems.</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- THE IDEA -->
+  <h2><span class="num">01</span>The idea in one breath</h2>
+  <p class="lead">If you remember nothing else, remember this:</p>
+  <div class="card">
+    <p class="big">Newton couldn't predict the “madness of people” for the <span class="acc">exact same reason</span>
+    Feynman says you can't grasp quantum mechanics classically: <span class="purple">human decision-making doesn't
+    obey classical probability — it obeys <i>quantum</i> probability.</span></p>
+    <p class="muted" style="margin-top:14px">Newton tried to apply <b>heavenly</b> (deterministic, classical) mechanics
+    to a system that is fundamentally <b>quantum-like</b>. The “madness” isn't random noise to average away — it's
+    <i>structured</i> non-classical behaviour. Feynman tells us <i>why</i> classical intuition was doomed; the science
+    of <b>quantum cognition</b> tells us <i>what to use instead.</b></p>
+  </div>
+
+  <!-- WHY HUMANS ARE QUANTUM-LIKE -->
+  <h2><span class="num">02</span>Why human choices look “quantum”</h2>
+  <p class="lead">People break the rules of classical probability in three signature ways — and these are exactly the
+  fingerprints of quantum probability. You don't need any physics to feel why.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <span class="pill">Order effects</span>
+      <h3>Order changes the answer</h3>
+      <p class="muted">Ask “Is the market safe?” <i>then</i> “Should you invest?” and you get different answers than asking
+      them in the reverse order. In classical probability, order can't matter. In quantum, it's natural —
+      measurements that <b>don't commute</b>.</p>
+    </div>
+    <div class="card">
+      <span class="pill">Interference</span>
+      <h3>Uncertainty isn't an average</h3>
+      <p class="muted">People who'd invest after good news <i>and</i> after bad news often <b>won't</b> invest when the news is
+      unknown. Classically impossible. Quantum-ly, the two possibilities <b>interfere</b> and cancel.</p>
+    </div>
+    <div class="card">
+      <span class="pill">Context</span>
+      <h3>The question creates the answer</h3>
+      <p class="muted">Preferences aren't fixed values waiting to be read — how you ask <b>constructs</b> the choice.
+      That's exactly what a quantum <b>measurement</b> does: it collapses a superposition.</p>
+    </div>
+  </div>
+
+  <!-- VISUAL: order effects / non-commuting -->
+  <div class="card">
+    <h3>Visual: why “order matters” = “the axes are tilted”</h3>
+    <p class="muted">Each question is a direction. Answering = projecting your mental state onto that direction. Project
+    onto A then B, vs B then A — because the arrows are <b>tilted</b> (non-commuting), you land in different places.
+    That tilt is the whole trick.</p>
+    <div class="viz"><canvas id="proj" width="520" height="300"></canvas></div>
+  </div>
+
+  <!-- VISUAL: interference / bubble -->
+  <div class="card">
+    <h3>Visual: interference of intentions → a bubble</h3>
+    <p class="muted">When many investors' “intentions” line up, their quantum waves add <b>constructively</b> — a bubble.
+    When they clash, they cancel — a crash of confidence. Drag the slider: this is herding as <i>interference</i>.</p>
+    <div class="viz"><canvas id="wave" width="900" height="220"></canvas></div>
+    <div style="text-align:center;margin-top:10px">
+      <label class="muted">Crowd alignment (phase): </label>
+      <input id="phase" type="range" min="0" max="100" value="20" style="width:60%;vertical-align:middle">
+      <span id="phaseVal" class="acc" style="font-weight:700"></span>
+    </div>
+  </div>
+
+  <!-- IT'S SCIENCE -->
+  <h2><span class="num">03</span>This is real science, not poetry</h2>
+  <p class="lead">“Quantum cognition” is a peer-reviewed field. Its models make predictions that have been confirmed on
+  real data — the kind of thing that survives tough questions from expert judges.</p>
+  <div class="card">
+    <ul class="clean">
+      <li><b>PNAS 2014</b> — a <i>parameter-free</i> quantum prediction for order effects (the “QQ-equality”), confirmed
+        across <b>70 national surveys</b>. A mere metaphor can't make parameter-free predictions; this one did.</li>
+      <li><b>Proc. Royal Society B 2009</b> — a quantum model explains people violating the “sure-thing principle”; an
+        equivalent classical model <b>provably cannot</b>.</li>
+      <li><b>Annual Review of Psychology 2022</b> — the field's authoritative review (reserved for established science).</li>
+      <li><b>Yukalov &amp; Sornette, Quantum Decision Theory</b> — applies it to risky <b>financial prospects</b>
+        (Sornette is a famous crash-modeling econophysicist — our bridge to finance).</li>
+      <li><b>Widdows &amp; Pothos, Entropy 2023</b> — already built these as <b>actual qubit circuits</b>. This is our proof
+        it's buildable in a weekend.</li>
+    </ul>
+  </div>
+
+  <div class="callout"><b>The one guardrail — say it before a judge asks.</b> We do <b>NOT</b> claim the brain is a
+  quantum computer (that's the fringe “quantum consciousness” stuff — avoid it). We claim: human judgment violates
+  <i>classical</i> probability exactly the way <i>quantum</i> probability predicts and quantitatively fits. It's
+  quantum-<i>like</i> math, not quantum neurons. Answering this proactively is a credibility win.</div>
+
+  <!-- THE DEMO -->
+  <h2><span class="num">04</span>What we actually build &amp; show</h2>
+  <p class="lead">A quantum-circuit “investor” that reproduces a real behavioral-finance quirk a classical model
+  <b>can't</b> — then we scale it to a crowd to show herding/bubbles.</p>
+
+  <div class="card">
+    <h3>The on-stage story (5 beats)</h3>
+    <div class="steps">
+      <div class="step"><b>The lament.</b> Newton's South Sea Bubble loss + his quote. The father of classical physics, wrecked by crowds.</div>
+      <div class="step"><b>Classical model fails.</b> A standard rational/Bayesian investor can't fit a real behavioral anomaly without contradicting itself.</div>
+      <div class="step"><b>Quantum model fits.</b> The <i>same</i> decision as a tiny qubit circuit — superposition, interference, measurement — reproduces the anomaly. Feynman's quote drops here.</div>
+      <div class="step"><b>Resolution.</b> Two quotes, side by side → one equation. “The madness of people is quantum.”</div>
+      <div class="step"><b>Finance payoff.</b> Scale to many investors → interference produces herding/bubbles. A “quantum sentiment” signal vs a classical one around a real bubble.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>The comparison plot that wins it (mock)</h3>
+    <p class="muted">Our headline visual: the gap between what people actually do and what each model predicts.
+    Classical can't close it; quantum can.</p>
+    <div class="bar-row"><div class="lbl">Humans (data)</div><div class="bar"><span style="width:78%;background:#fff"></span></div><div style="width:42px">78%</div></div>
+    <div class="bar-row"><div class="lbl">Classical model</div><div class="bar"><span style="width:50%;background:var(--bad)"></span></div><div style="width:42px">50%</div></div>
+    <div class="bar-row"><div class="lbl">Quantum model</div><div class="bar"><span style="width:76%;background:var(--good)"></span></div><div style="width:42px">76%</div></div>
+    <div class="legend"><span><span class="dot" style="background:#fff"></span>What people really choose</span>
+      <span><span class="dot" style="background:var(--bad)"></span>Classical prediction (misses)</span>
+      <span><span class="dot" style="background:var(--good)"></span>Quantum prediction (matches)</span></div>
+    <p class="muted" style="font-size:13px;margin-top:10px">Illustrative — exact numbers come from the dataset/circuit we fit.</p>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>Tech (small &amp; feasible)</h3>
+      <ul class="clean">
+        <li><b>1–3 qubits.</b> Belief state on a qubit; two “questions” = non-commuting rotations; measure → order-dependence.</li>
+        <li><b>Finance framing:</b> the two questions = an investment choice under framing/uncertainty (a two-stage gamble).</li>
+        <li><b>Classical baseline</b> = a Bayesian/Markov model that demonstrably can't match the data.</li>
+        <li><b>Stretch:</b> N coupled investor qubits → interference → bubble; quantum vs classical sentiment over a historical bubble.</li>
+        <li><b>Stack:</b> PennyLane or Qiskit, statevector simulator, Python plots. No real quantum hardware needed.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Why it scores on all four axes (25% each)</h3>
+      <div class="scoregrid">
+        <div class="score"><div class="pct">Novelty 25%</div>Newton+Feynman+quantum cognition in finance — nobody else will have this.</div>
+        <div class="score"><div class="pct">Formulation 25%</div>“Classical probability can't model investor irrationality; quantum can” — testable.</div>
+        <div class="score"><div class="pct">Depth 25%</div>Real circuits + falsifiable classical-vs-quantum comparison, grounded in PNAS/RSPB.</div>
+        <div class="score"><div class="pct">Business 25%</div>Herding, bank-run panic, framing in product/pension choices — OP's core.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 24 HOUR PLAN -->
+  <h2><span class="num">05</span>The 24-hour plan → submit tomorrow 10:00 AM</h2>
+  <p class="lead">Team of 4: <span class="tag t-phy">PHY</span> two physicists (circuits &amp; theory) ·
+  <span class="tag t-cs">CS</span> two coders (data, baseline, visuals, deck). Times assume a ~10:00 AM start today —
+  <b>slide every block to match your real start time</b>. The golden rule: a working <i>core</i> demo by tonight, polish after sleep.</p>
+
+  <div class="callout good"><b>Definition of “done” by 10:00:</b> one slide showing humans break a rule, the classical
+  model can't fit it, the quantum circuit does — plus a 3-minute story. Everything else is bonus.</div>
+
+  <div class="phase">
+    <div class="time">Hr 0–2<small>~10:00–12:00</small></div>
+    <div class="body"><h4>Lock scope &amp; set up — everyone in one room</h4>
+      <p class="muted">Agree the <b>one anomaly</b> we reproduce (recommended: a question-<b>order effect</b> or the
+      <b>disjunction effect</b>). Pick the dataset/framing scenario. Set up the shared repo + Python env
+      (PennyLane/Qiskit) on all machines. Write the one-sentence pitch on a whiteboard and don't change it.</p>
+      <div class="who-tags"><span class="tag t-all">ALL</span></div>
+      <div class="chk">✔ Checkpoint: env runs a 1-qubit circuit; scope + pitch frozen.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="time">Hr 2–7<small>~12:00–17:00</small></div>
+    <div class="body"><h4>Parallel build — the core</h4>
+      <ul class="clean">
+        <li><b>PHY1 + PHY2:</b> the quantum decision circuit — qubit belief state, two non-commuting “question” rotations,
+          interference, measurement. Get it to <b>reproduce the anomaly</b> (order-dependence / the QQ-equality).</li>
+        <li><b>CS1:</b> the classical baseline (Bayesian/Markov) + the data pipeline; show the baseline <b>fails</b>.</li>
+        <li><b>CS2:</b> plotting + demo scaffold + start the slide deck skeleton (5 beats from section 04).</li>
+      </ul>
+      <div class="who-tags"><span class="tag t-phy">PHY1</span><span class="tag t-phy">PHY2</span><span class="tag t-cs">CS1</span><span class="tag t-cs">CS2</span></div>
+      <div class="chk">✔ Checkpoint (Hr 7): circuit shows the effect; baseline misses it — separately.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="time">Hr 7–10<small>~17:00–20:00</small></div>
+    <div class="body"><h4>Integrate the single-investor demo (THE must-have)</h4>
+      <p class="muted">Wire it together: same scenario → classical predicts X (wrong), quantum predicts Y (matches humans).
+      Produce <b>the headline comparison plot</b> (section 04). Break for dinner once it runs end-to-end.</p>
+      <div class="who-tags"><span class="tag t-all">ALL</span></div>
+      <div class="chk">✔ MILESTONE: core demo works end-to-end. If we stop now, we can still submit. 🎯</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="time">Hr 10–15<small>~20:00–01:00</small></div>
+    <div class="body"><h4>Stretch — the crowd / bubble (nice-to-have)</h4>
+      <ul class="clean">
+        <li><b>PHY:</b> N coupled investor qubits; sweep the coupling → constructive interference forms a “bubble”.</li>
+        <li><b>CS:</b> overlay a quantum vs classical “sentiment” signal on a real historical bubble window (e.g. dot-com / 2008 / a crypto run via free price data).</li>
+      </ul>
+      <p class="muted">Hard stop at Hr 15: if the stretch isn't convincing, <b>cut it</b> and protect the core. Don't let the bonus sink the must-have.</p>
+      <div class="who-tags"><span class="tag t-phy">PHY1</span><span class="tag t-phy">PHY2</span><span class="tag t-cs">CS1</span><span class="tag t-cs">CS2</span></div>
+      <div class="chk">✔ Checkpoint (Hr 15): freeze all code. Whatever works, works. No new features after this.</div>
+    </div>
+  </div>
+
+  <div class="phase rest">
+    <div class="time">Hr 15–20<small>~01:00–06:00</small></div>
+    <div class="body"><h4>Rest / rotate 💤</h4>
+      <p>Sleep, or rotate one person on light polish while three rest. A sharp 3-minute pitch at 10:00 beats a broken
+      feature built at 4 AM. Protect the people who present.</p>
+      <div class="who-tags"><span class="tag t-all">ALL (rotate)</span></div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="time">Hr 20–22.5<small>~06:00–08:30</small></div>
+    <div class="body"><h4>Polish, deck, and the narrative</h4>
+      <ul class="clean">
+        <li><b>CS:</b> finalize plots, clean the notebook so it runs top-to-bottom, finish the 5-beat deck + the guardrail slide.</li>
+        <li><b>PHY:</b> write the “why it's really quantum” explanation + the resolution slide; prep answers to expert questions.</li>
+      </ul>
+      <div class="who-tags"><span class="tag t-cs">CS1</span><span class="tag t-cs">CS2</span><span class="tag t-phy">PHY1</span><span class="tag t-phy">PHY2</span></div>
+      <div class="chk">✔ Checkpoint (Hr 22.5): deck done, notebook runs clean, demo reproducible.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="time">Hr 22.5–24<small>~08:30–10:00</small></div>
+    <div class="body"><h4>Rehearse, record a fallback, submit</h4>
+      <p class="muted">Run the pitch twice out loud (assign who says what). <b>Record a 2-min screen capture of the working
+      demo</b> as a fallback in case live fails. Write the submission text. <b>Submit by 09:50</b> — never at 09:59.</p>
+      <div class="who-tags"><span class="tag t-all">ALL</span></div>
+      <div class="chk">✔ SUBMITTED. 🚀</div>
+    </div>
+  </div>
+
+  <div class="mustnice">
+    <div class="box must">
+      <h3 style="color:var(--good)">Must-have (protect at all costs)</h3>
+      <ul class="clean">
+        <li>One behavioral anomaly reproduced by the quantum circuit.</li>
+        <li>Classical baseline that visibly fails on the same data.</li>
+        <li>The headline comparison plot.</li>
+        <li>A tight 3-minute Newton→Feynman→resolution story + guardrail slide.</li>
+      </ul>
+    </div>
+    <div class="box nice">
+      <h3 style="color:#c7b8ff">Nice-to-have (only if core is safe)</h3>
+      <ul class="clean">
+        <li>Multi-investor herding / bubble from interference.</li>
+        <li>Quantum vs classical sentiment over a real historical bubble.</li>
+        <li>Interactive widget / animation in the demo.</li>
+        <li>A clean GitHub README with the story.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout"><b>Biggest risks &amp; the fix.</b> (1) <b>Over-scoping</b> — the crowd/bubble part eats the night; mitigate with the Hr-15 freeze. (2) <b>“It's just philosophy”</b> — mitigate by leading with the falsifiable classical-vs-quantum plot and citing PNAS/RSPB. (3) <b>Live demo fails</b> — mitigate with the recorded fallback video.</div>
+
+  <footer>
+    Built from the project context folder · concept: “The Madness of People Is Quantum” ·
+    grounded in quantum cognition / quantum decision theory (Pothos &amp; Busemeyer; Yukalov &amp; Sornette; Widdows &amp; Pothos).<br>
+    Quantum-<i>like</i> math, not quantum neurons. Good luck — go win the room. 🟣🟢
+  </footer>
+</div>
+
+<script>
+// ---- Visual 1: projection / non-commuting axes ----
+(function(){
+  const c=document.getElementById('proj'); if(!c)return; const x=c.getContext('2d');
+  const cx=150, cy=160, R=110;
+  function arrow(ang,col,lab,len){
+    const ex=cx+Math.cos(ang)*len, ey=cy-Math.sin(ang)*len;
+    x.strokeStyle=col;x.fillStyle=col;x.lineWidth=3;
+    x.beginPath();x.moveTo(cx,cy);x.lineTo(ex,ey);x.stroke();
+    x.beginPath();x.arc(ex,ey,4,0,7);x.fill();
+    x.font="13px sans-serif";x.fillText(lab,ex+6,ey-4);
+  }
+  function dash(x1,y1,x2,y2,col){x.save();x.setLineDash([4,4]);x.strokeStyle=col;x.lineWidth=1.5;
+    x.beginPath();x.moveTo(x1,y1);x.lineTo(x2,y2);x.stroke();x.restore();}
+  function draw(){
+    x.clearRect(0,0,c.width,c.height);
+    // mental state
+    const sAng=Math.PI*0.32;
+    const sx=cx+Math.cos(sAng)*R, sy=cy-Math.sin(sAng)*R;
+    // question A (horizontal), question B (tilted)
+    const aAng=0, bAng=Math.PI*0.62;
+    arrow(aAng,'#23d5c8','Question A',150);
+    arrow(bAng,'#7c5cff','Question B (tilted)',150);
+    // state
+    x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=3;
+    x.beginPath();x.moveTo(cx,cy);x.lineTo(sx,sy);x.stroke();
+    x.beginPath();x.arc(sx,sy,5,0,7);x.fill();
+    x.font="13px sans-serif";x.fillText('your mind',sx+8,sy-6);
+    // projection onto A
+    const pax=cx+Math.cos(aAng)*(Math.cos(sAng-aAng)*R);
+    const pay=cy-Math.sin(aAng)*(Math.cos(sAng-aAng)*R);
+    dash(sx,sy,pax,pay,'#23d5c8');
+    x.fillStyle='#23d5c8';x.beginPath();x.arc(pax,pay,4,0,7);x.fill();
+    x.fillStyle='#9fb0d4';x.font="12px sans-serif";
+    x.fillText('Project A→B and B→A land in different spots ⇒ order matters',8,292);
+  }
+  draw();
+})();
+
+// ---- Visual 2: interference wave / bubble ----
+(function(){
+  const c=document.getElementById('wave'); if(!c)return; const x=c.getContext('2d');
+  const slider=document.getElementById('phase'), out=document.getElementById('phaseVal');
+  function draw(){
+    const p=+slider.value/100;            // 0..1 alignment
+    const phase=(1-p)*Math.PI;            // aligned -> 0 phase
+    const W=c.width,H=c.height,mid=H/2;
+    x.clearRect(0,0,W,H);
+    // axis
+    x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=1;x.beginPath();x.moveTo(0,mid);x.lineTo(W,mid);x.stroke();
+    const k=0.045, amp=42;
+    function wave(ph,col){x.strokeStyle=col;x.lineWidth=2;x.beginPath();
+      for(let i=0;i<=W;i++){const y=mid-amp*Math.sin(k*i+ph);i?x.lineTo(i,y):x.moveTo(i,y);}x.stroke();}
+    wave(0,'rgba(35,213,200,.55)');       // investor wave 1
+    wave(phase,'rgba(124,92,255,.55)');   // investor wave 2
+    // sum
+    x.strokeStyle='#fff';x.lineWidth=3;x.beginPath();
+    let peak=0;
+    for(let i=0;i<=W;i++){const s=Math.sin(k*i)+Math.sin(k*i+phase);const y=mid-amp*s;peak=Math.max(peak,Math.abs(s));i?x.lineTo(i,y):x.moveTo(i,y);}
+    x.stroke();
+    const bubble=peak>1.6, crash=peak<0.5;
+    out.textContent = bubble? ' → BUBBLE (constructive)' : crash? ' → confidence collapse (cancels)' : ' → mild';
+    out.style.color = bubble? '#ffb454' : crash? '#ff6b81' : '#9fb0d4';
+  }
+  slider.addEventListener('input',draw); draw();
+})();
+</script>
+</body>
+</html>
