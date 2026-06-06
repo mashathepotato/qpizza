@@ -52,8 +52,9 @@ def main():
 
     print(f"  Source   : {meta['source']}")
     if "ticker" in meta:
-        print(f"  Ticker   : {meta['ticker']}  ({meta.get('start','')} – {meta.get('end','')},"
-              f"  n={meta.get('n_obs','')} obs)")
+        print(f"  Ticker   : {meta['ticker']}  (calibration {meta.get('calib_start','')} – "
+              f"{meta.get('calib_end','')},  n={meta.get('n_obs','')} obs, "
+              f"STRICTLY <= asof={meta.get('asof','')})")
     if meta.get("source") == "synthetic":
         print(f"  Reason   : {meta.get('reason', 'network disabled')}  [SYNTHETIC FALLBACK]")
     print(f"  S0 = {S0:.4f}   sigma = {sigma:.4f}   r = {r:.4f}")
@@ -228,7 +229,8 @@ def main():
 
     # ── 7. Summary ────────────────────────────────────────────────────────────
     _banner("Summary")
-    src_label = "LIVE yfinance" if meta["source"] == "yfinance" else "SYNTHETIC (offline fallback)"
+    src_label = ("yfinance (cached CSV, pinned asof)" if meta["source"].startswith("yfinance")
+                 else "SYNTHETIC (offline fallback)")
     print(f"  Data source     : {src_label}")
     print(f"  S0={S0:.4f}  K={K:.2f}  sigma={sigma:.4f}  r={r:.4f}  T={T}  M={M_PRICE}")
     print(f"  Ground truth (tree, M={M_PRICE}) : {exact_price:.6f}")
@@ -251,8 +253,11 @@ def main():
           f"{lm['abs_error']:.1e}.")
     print()
     print("  HONESTY NOTES:")
+    print("    * Calibration is look-ahead-free: sigma/S0 use only closes <= asof;")
+    print("      out-of-sample evaluation lives in make_results (dashboard section 6).")
     print("    * QSVT measures the straddle E[|f-K|] and recovers the call via")
-    print("      put-call parity; it carries a ~1.4% polynomial-approx residual.")
+    print("      put-call parity; it carries a degree-60 polynomial-approx residual")
+    print("      (design-dependent; exact size printed in make_results).")
     print("    * QNDM Fourier (shots=None) is O(1/eps^2) in shots — its win is")
     print("      shallow depth / exact loading / Q50 feasibility, not eps-scaling.")
     print("    * QAE's query schedule saturates at small M (annotated in complexity rows).")

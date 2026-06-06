@@ -46,6 +46,14 @@ def headline_figure(data, obs_effect, obs_qq, c_pred, path="figure.png"):
                  xy=(1 + w / 2, classical[1]), xytext=(0.30, 0.90),
                  fontsize=9, color=style.PALETTE["classical"],
                  arrowprops=dict(arrowstyle="->", color=style.PALETTE["classical"]))
+    # bracket between the two HUMAN bars: the order effect itself
+    top = max(human) + 0.10
+    ax1.annotate("", xy=(0 - w / 2, top), xytext=(1 - w / 2, top),
+                 arrowprops=dict(arrowstyle="<->", color=style.PALETTE["quantum"], lw=1.4))
+    ax1.text(1 - w / 2 + 0.06, top,
+             f"$\\Delta$ = {human[1] - human[0]:+.3f}",
+             ha="left", va="center", fontsize=9.5, color=style.PALETTE["quantum"],
+             fontweight="bold")
 
     # ---- Right: order effect is large, but the QQ combination ~ 0 ----
     labels = ["|order effect|\n(real, large)", "|QQ-equality q|\n(~ 0, parameter-free)"]
@@ -62,6 +70,12 @@ def headline_figure(data, obs_effect, obs_qq, c_pred, path="figure.png"):
                  xy=(1, vals[1]), xytext=(0.45, max(vals) * 0.7),
                  fontsize=9, color=style.PALETTE["accent"],
                  arrowprops=dict(arrowstyle="->", color=style.PALETTE["accent"]))
+    if abs(obs_qq) > 0:
+        ratio = abs(obs_effect) / abs(obs_qq)
+        ax2.text(0.5, max(vals) * 1.12,
+                 f"~{ratio:.0f}$\\times$ smaller — with zero fitted parameters",
+                 ha="center", fontsize=10, color=style.PALETTE["ink"],
+                 style="italic")
 
     fig.suptitle("The Madness of People Is Quantum - real question-order data obeys "
                  "the parameter-free QQ-equality", fontsize=13, fontweight="bold")

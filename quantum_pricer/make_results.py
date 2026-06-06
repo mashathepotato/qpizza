@@ -4,7 +4,9 @@
   * Quantum SOTA: Qiskit Finance oracle-QAE (lognormal loader)  [sota.py]
   * Our routes: QNDM Fourier / QAE / QSVT  [fourier.py, qae.py, qsvt.py]
 
-against the appropriate ground truth, and writes:
+against the appropriate ground truth, plus a LOOK-AHEAD-FREE out-of-sample
+section (calibrate strictly before t0 = data.ASOF, evaluate on the option's
+life after t0), and writes:
   results/results.json     -- the raw numbers + provenance
   results/dashboard.html   -- a self-contained, heavily-labelled dashboard
 
@@ -28,17 +30,18 @@ from qiskit import transpile
 
 from quantum_pricer import backends, classical, fourier, qae, qsvt, sota, tree
 from quantum_pricer.benchmark import resource_table
-from quantum_pricer.data import nokia_params
+from quantum_pricer.data import ASOF, nokia_params, realized_outcome
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_HERE)
 _RESULTS = os.path.join(_REPO, "results")
 
-M_PRICE = 3        # individual route prices (fast, exact statevector where used)
+M_PRICE = 4        # individual route prices (16 paths; M=3 was too coarse to mean much)
 M_BENCH = 4        # resource table
 N_MC_PATHS = 100_000
 T = 1.0
 EPS = 0.01         # QAE target accuracy
+FOURIER_SHOTS = 4096   # finite shots so the Fourier row is an ESTIMATE, not statevector
 NP_SWEEP = [3, 4, 5]   # SOTA price-register sizes to sweep
 
 
@@ -48,11 +51,11 @@ def _cz_depth(qc):
 
 
 def compute():
-    # ── market data (one snapshot drives everything) ───────────────────────────
+    # ── market data: calibrated STRICTLY before t0 = ASOF (no look-ahead) ──────
     params, meta = nokia_params(allow_network=True)
     S0, sigma, r = params["S0"], params["sigma"], params["r"]
-    K = round(S0, 2)   # at-the-money strike
-    live = meta.get("source") == "yfinance"
+    K = round(S0, 2)   # at-the-money strike (at t0)
+    live = meta.get("source", "").startswith("yfinance")
 
     # ── references ─────────────────────────────────────────────────────────────
     tree_price = tree.exact_tree_price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_PRICE)
@@ -85,12 +88,26 @@ def compute():
         "closed-form Black-Scholes formula (no sampling)",
         note="continuum M->inf limit; differs from tree by O(1/M) discretisation")
 
-    # Our QNDM Fourier — statevector (noiseless), scored vs tree
-    fq = fourier.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_PRICE,
-                       option="european", kind="call")
+    # Our QNDM Fourier — FINITE-SHOT estimate, seed-averaged (the statevector value
+    # is exact by construction, so it is reported only as a loading check in the
+    # note). The char-function least-squares inversion AMPLIFIES shot noise, so a
+    # single seeded run is dominated by luck; mean over fixed seeds 0..7 with the
+    # per-run RMS disclosed is the honest single number.
+    fq_sv = fourier.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_PRICE,
+                          option="european", kind="call")
+    fq_runs = [fourier.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_PRICE,
+                             option="european", kind="call",
+                             shots=FOURIER_SHOTS, seed=s) for s in range(8)]
+    fq = float(np.mean(fq_runs))
+    fq_rms = float(np.sqrt(np.mean((np.asarray(fq_runs) - tree_price) ** 2)))
     add("OURS — QNDM Fourier", "ours", fq, "exact tree (M=%d)" % M_PRICE, tree_price,
-        "SIMULATED", "statevector (exact probabilities, noiseless)",
-        note="O(1/eps^2) in SHOTS; win is shallow depth + exact loading, not eps-scaling")
+        "SIMULATED", "finite shots (%d per lambda point), Aer; mean of 8 seeded runs"
+        % FOURIER_SHOTS,
+        note=("O(1/eps^2) in SHOTS and the inversion amplifies shot noise: per-run "
+              "RMS error = %.4f EUR at this budget. Win is shallow depth + exact "
+              "loading, not sampling efficiency. Statevector check = %.6f (matches "
+              "tree to machine precision — exact loading, NOT an estimate)"
+              % (fq_rms, fq_sv)))
 
     # Our QNDM QAE — finite-shot Sampler, scored vs tree
     aq = qae.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_PRICE,
@@ -100,12 +117,17 @@ def compute():
         note="O(1/eps) oracle queries (quadratic speed-up); eps_target=%.3f" % EPS,
         queries=aq["num_oracle_queries"])
 
-    # Our novel QSVT — statevector, scored vs tree
+    # Our novel QSVT — statevector, scored vs tree. The statevector residual IS the
+    # polynomial-approximation floor (no sampling error), so report it as such.
     qv = qsvt.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M_PRICE,
                     option="european", kind="call", degree=60, use_qae=False)
+    qsvt_floor_rel = abs(qv - tree_price) / tree_price
     add("OURS — novel QSVT", "ours", qv, "exact tree (M=%d)" % M_PRICE, tree_price,
         "SIMULATED", "statevector (straddle transfer function, noiseless)",
-        note="straddle E[|f-K|] + put-call parity; ~1.4% polynomial-approx floor (degree 60)")
+        note=("straddle E[|f-K|] + put-call parity; the error shown IS the "
+              "polynomial-approximation floor: %.2f%% at degree 60 for design "
+              "constants (A,B)=(0.10,0.35) — design-dependent, not fundamental"
+              % (qsvt_floor_rel * 100)))
 
     # Quantum SOTA — Qiskit Finance oracle-QAE; loads a LOGNORMAL => scored vs BS
     sota_head = sota.price(S0=S0, K=K, r=r, sigma=sigma, T=T,
@@ -154,6 +176,41 @@ def compute():
                       note="log-log slope of queries vs 1/eps; THEORETICAL "
                            "(analytic CLT for MC, pi/(2 eps) for QAE)")
 
+    # ── OUT-OF-SAMPLE: the only section that touches reality ──────────────────
+    # Calibration saw nothing after t0; the option's life (t0, t0+T] is evaluation.
+    out_of_sample = None
+    if live:
+        try:
+            oo = realized_outcome(asof=meta["asof"], T=T)
+            disc_payoff = float(np.exp(-r * T) * max(oo["S_T"] - K, 0.0))
+            out_of_sample = dict(
+                asof=meta["asof"],
+                # Tier 1 — clean test of the ONE estimated parameter (sigma)
+                vol_forecast=dict(
+                    tag="VALIDATED",
+                    sigma_forecast=float(sigma),
+                    sigma_realized=float(oo["realized_vol"]),
+                    rel_gap=float(oo["realized_vol"] / sigma - 1.0),
+                    window="%s to %s (%d obs)" % (oo["window_start"],
+                                                  oo["window_end"], oo["n_obs"]),
+                    note=("annualized realized vol over the option's life vs the "
+                          "calibrated forecast; out-of-sample, measure-free")),
+                # Tier 3 — single realized path, physical measure: ILLUSTRATIVE only
+                realized_payoff=dict(
+                    tag="ILLUSTRATIVE",
+                    S_T=float(oo["S_T"]), S_T_date=oo["S_T_date"], K=float(K),
+                    discounted_payoff=disc_payoff,
+                    model_price_tree=float(tree_price),
+                    caveats=[
+                        "n=1: one realized path drawn against an expectation — "
+                        "anecdote, not validation",
+                        "measure mismatch: the price is a RISK-NEUTRAL expectation; "
+                        "the realized payoff happens under the physical measure, so "
+                        "even a perfect model does not match it on average "
+                        "(the gap includes the risk premium)"]))
+        except Exception as exc:   # asof+T still in the future, or window too thin
+            out_of_sample = dict(asof=meta.get("asof"), unavailable=str(exc))
+
     # ── embed the demo figures (generated this session on live data) ───────────
     figures = {}
     for key, fname in [("complexity", "complexity.png"),
@@ -167,18 +224,22 @@ def compute():
     return dict(
         meta=dict(
             generated_utc=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"),
-            data_source=("LIVE yfinance" if live else "SYNTHETIC (offline fallback)"),
+            data_source=("yfinance (cached CSV, pinned asof — reproducible)" if live
+                         else "SYNTHETIC (offline fallback)"),
             ticker=meta.get("ticker", "n/a"),
-            data_window=("%s to %s (%s obs)" % (meta.get("start", "?"),
-                                                meta.get("end", "?"),
-                                                meta.get("n_obs", "?")) if live
+            asof=meta.get("asof", ASOF),
+            calib_start=meta.get("calib_start"), calib_end=meta.get("calib_end"),
+            data_window=("calibration %s to %s (%s obs), STRICTLY <= asof"
+                         % (meta.get("calib_start", "?"), meta.get("calib_end", "?"),
+                            meta.get("n_obs", "?")) if live
                          else "reason: %s" % meta.get("reason", "network disabled")),
+            r_source=meta.get("r_source", "fixed proxy"),
             S0=S0, sigma=sigma, r=r, K=K, T=T, M_price=M_PRICE, M_bench=M_BENCH,
             eps=EPS, n_mc_paths=N_MC_PATHS, currency="EUR (NOKIA.HE)" if live else "EUR-like (synthetic)"),
         references=dict(tree_price=tree_price, bs_price=bs_price,
                         bs_minus_tree=bs_price - tree_price),
         routes=routes, sota_sweep=sota_sweep, resources=resources,
-        complexity=complexity, figures=figures)
+        complexity=complexity, out_of_sample=out_of_sample, figures=figures)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,7 +290,8 @@ code{background:#0d1430;border:1px solid var(--line);border-radius:4px;padding:1
 
 def _badge(tag):
     m = {"THEORETICAL": "b-theo", "SIMULATED": "b-sim", "REFERENCE": "b-ref",
-         "MARKET": "b-mkt", "SYNTHETIC": "b-syn"}
+         "MARKET": "b-mkt", "SYNTHETIC": "b-syn",
+         "VALIDATED": "b-ref", "ILLUSTRATIVE": "b-syn"}
     return f'<span class="badge {m.get(tag,"b-sim")}">{tag}</span>'
 
 
@@ -274,7 +336,14 @@ def build_html(R):
     cur = m["currency"]
     H.append("<h2>1 · Inputs &amp; data provenance</h2>")
     H.append(f"<p class='sub'>{src_badge} &nbsp;{m['data_source']} — ticker <code>{m['ticker']}</code>, "
-             f"{m['data_window']}. All prices below are option premiums in <b>{cur}</b>, per share.</p>")
+             f"pricing date t₀ = <b>{m.get('asof','?')}</b>; {m['data_window']}; "
+             f"r: {m.get('r_source','fixed proxy')}. "
+             f"All prices below are option premiums in <b>{cur}</b>, per share.</p>")
+    H.append("<div class='callout'><b>Model-internal vs reality.</b> Sections 2–5 benchmark "
+             "the <i>algorithms</i>: every route targets the same model distribution, so those "
+             "comparisons are valid for any calibration but say nothing about the real market. "
+             "Section 6 is the only place that touches reality — calibration uses <b>only data "
+             "on or before t₀</b>, and the option's life after t₀ is held out for evaluation.</div>")
     H.append("<div class='kvs'>")
     for k, v, unit in [("Spot S₀", f"{m['S0']:.4f}", cur.split()[0]),
                        ("Strike K (ATM)", f"{m['K']:.2f}", cur.split()[0]),
@@ -321,10 +390,10 @@ def build_html(R):
                 last_group = rt["group"]
             is_ref = rt["tag"] == "THEORETICAL" and rt["name"].startswith("Black")
             if is_ref:
-                gcls, glabel, abs, rels = "", "— (is the reference)", "—", "—"
+                gcls, glabel, abs_s, rels = "", "— (is the reference)", "—", "—"
             else:
                 gcls, glabel = _grade_rel(rt["rel_err"])
-                abs = f"<span class='{gcls}'>{rt['abs_err']:+.6f}</span>"
+                abs_s = f"<span class='{gcls}'>{rt['abs_err']:+.6f}</span>"
                 rels = f"<span class='{gcls}'>{rt['rel_err']*100:+.3f}%</span>"
             q = "—" if rt["queries"] is None else f"{rt['queries']:,}"
             qnote = " (samples)" if rt["group"] == "classical" and rt["queries"] else ""
@@ -333,7 +402,7 @@ def build_html(R):
                      f"<td>{_badge(rt['tag'])}<div class='note' style='margin-top:4px'>{rt['sim_how']}</div></td>"
                      f"<td class='num'>{rt['price']:.6f}</td>"
                      f"<td>{rt['ref_name']}</td>"
-                     f"<td class='num'>{abs}</td>"
+                     f"<td class='num'>{abs_s}</td>"
                      f"<td class='num'>{rels}</td>"
                      f"<td class='num'>{q}{qnote}</td>"
                      f"<td class='note'>{rt['note']}</td></tr>")
@@ -430,8 +499,50 @@ def build_html(R):
                      f"<p class='note'>{figcaps[key]}</p>"
                      f"<img src='data:image/png;base64,{R['figures'][key]}' alt='{key}'></div>")
 
+    # ── out-of-sample (the only section that touches reality) ──────────────────
+    H.append("<h2>6 · Out-of-sample — reality check (t₀ = %s)</h2>" % m.get("asof", "?"))
+    oos = R.get("out_of_sample")
+    if oos is None:
+        H.append("<p class='sub'>Not available (synthetic data fallback — no real "
+                 "history to evaluate against).</p>")
+    elif "unavailable" in oos:
+        H.append(f"<p class='sub'>Not available: {oos['unavailable']}</p>")
+    else:
+        vf, rp = oos["vol_forecast"], oos["realized_payoff"]
+        H.append("<p class='sub'>Calibration saw <b>nothing after t₀</b>; the option's "
+                 "life (t₀, t₀+T] is held out. Tier 1 tests the one estimated parameter "
+                 "(σ) — clean and measure-free. Tier 3 shows the single realized path — "
+                 "labelled illustrative because one draw cannot validate an expectation.</p>")
+        gap_cls = "g-good" if abs(vf["rel_gap"]) < 0.1 else (
+            "g-mid" if abs(vf["rel_gap"]) < 0.3 else "g-bad")
+        H.append("<div class='card'><h3>Tier 1 — volatility forecast "
+                 f"{_badge(vf['tag'])}</h3><table><thead><tr>"
+                 "<th>σ forecast (calibrated ≤ t₀)</th><th>σ realized (t₀, t₀+T]</th>"
+                 "<th>Relative gap<span class='dir'>closer to 0 = better</span></th>"
+                 "<th>Evaluation window</th></tr></thead><tbody><tr>"
+                 f"<td class='num'>{vf['sigma_forecast']*100:.2f}%</td>"
+                 f"<td class='num'>{vf['sigma_realized']*100:.2f}%</td>"
+                 f"<td class='num'><span class='{gap_cls}'>{vf['rel_gap']*100:+.1f}%</span></td>"
+                 f"<td class='note'>{vf['window']}</td>"
+                 f"</tr></tbody></table><p class='note'>{vf['note']}. A large gap is a "
+                 "property of the σ estimator (trailing realized vol), not of the quantum "
+                 "algorithms — they price whatever model they are given.</p></div>")
+        H.append("<div class='card'><h3>Tier 3 — realized payoff "
+                 f"{_badge(rp['tag'])}</h3><table><thead><tr>"
+                 f"<th>S_T ({rp['S_T_date']})</th><th>Strike K</th>"
+                 "<th>Discounted realized payoff</th><th>Model price at t₀ (tree)</th>"
+                 "</tr></thead><tbody><tr>"
+                 f"<td class='num'>{rp['S_T']:.4f}</td>"
+                 f"<td class='num'>{rp['K']:.2f}</td>"
+                 f"<td class='num'>{rp['discounted_payoff']:.4f}</td>"
+                 f"<td class='num'>{rp['model_price_tree']:.4f}</td>"
+                 "</tr></tbody></table><ul class='note' style='line-height:1.7'>")
+        for c in rp["caveats"]:
+            H.append(f"<li>{c}</li>")
+        H.append("</ul></div>")
+
     # ── honesty notes ──────────────────────────────────────────────────────────
-    H.append("<h2>6 · Honesty notes (read before quoting any number)</h2>")
+    H.append("<h2>7 · Honesty notes (read before quoting any number)</h2>")
     H.append("<div class='card'><ul class='note' style='line-height:1.8'>"
              "<li><b>No hardware noise.</b> Every SIMULATED number here is noiseless (statevector / "
              "finite-shot ideal Sampler). Real-hardware (q50_fake) runs show ~15% error at M=1 — not in this dashboard.</li>"
@@ -441,8 +552,12 @@ def build_html(R):
              "(±3σ bounds, c_approx=0.25) it is dominated by tail truncation (≈ −0.36) + payoff linearisation "
              "(≈ +0.18); these do not vanish by adding qubits. Tuning bounds/c_approx can close it — at extra cost. "
              "This is a fair, real property of oracle-loading a continuous law, not a strike against QAE.</li>"
-             "<li><b>QSVT carries a ~1.4% approximation floor</b> (degree-60 polynomial near the payoff kink). "
-             "It shrinks with degree; it is a real physics constraint, not a bug.</li>"
+             "<li><b>QSVT carries a polynomial-approximation floor</b> (degree-60 straddle polynomial near "
+             "the payoff kink; the exact size is printed in its table row). It shrinks with degree and "
+             "depends on the free design constants (A,B) — design-dependent, not fundamental.</li>"
+             "<li><b>Calibration is look-ahead-free.</b> σ and S₀ use only closes on or before t₀; r is a "
+             "fixed proxy chosen as of t₀. The out-of-sample section is the only place the model meets "
+             "reality, and its single-path payoff row is illustrative by construction.</li>"
              "<li><b>QNDM Fourier is O(1/ε²) in shots</b>, like MC — its win is shallow depth &amp; exact loading, "
              "not ε-scaling. Only QAE/QSVT give the O(1/ε) quadratic speed-up.</li>"
              "<li><b>QAE query schedule saturates at small M</b> — the honest empirical points sit below the "

@@ -12,8 +12,8 @@ def _p(*parts):
     return os.path.join(ROOT, *parts)
 
 
-# Triage still lives in a worktree; pricer + cognition are on main.
-_TRIAGE = _p(".claude", "worktrees", "triage-lab", "triage")
+# The triage worktree is archived; its measured figure is cached in results/figures/.
+_TRIAGE_FIG = _p("results", "figures", "qae_scaling.png")
 
 TRACKS = [
     {
@@ -60,26 +60,30 @@ TRACKS = [
         "prose": ("Loads the full price-path tree into a superposition and reads the fair "
                   "price off it via QNDM phase encoding + amplitude estimation, removing the "
                   "expensive distribution-loading oracle that bottlenecks prior quantum pricers. "
-                  "Ground truth = exact CRR binomial tree; Nokia (NOKIA.HE) European/Asian call."),
+                  "Ground truth = exact CRR binomial tree; Nokia (NOKIA.HE) European/Asian call. "
+                  "Calibration is look-ahead-free (only closes on or before t0 = 2025-06-05); "
+                  "out-of-sample checks live in results/dashboard.html section 6."),
         "provenance": "Stamatopoulos et al., Quantum 4:291 (2020); Montanaro, Proc. R. Soc. A (2015).",
     },
     {
         "key": "triage",
         "title": "Triage Lab - QAE scaling advantage",
-        "claim": "QAE error falls with slope ~ -1 vs classical Monte-Carlo ~ -2 in queries.",
-        "figure": os.path.join(_TRIAGE, "plots", "qae_scaling.png"),
+        "claim": ("QAE cost grows as O(1/eps) (log-log slope -1 vs target accuracy eps) "
+                  "vs Monte-Carlo's O(1/eps^2) (slope -2) - quadratic speedup at tight eps."),
+        "figure": _TRIAGE_FIG,
         "regenerate": None,
         "table": {
-            "header": ["method", "scaling slope", "interpretation"],
+            "header": ["method", "cost slope vs eps (measured)", "interpretation"],
             "rows": [
-                ["QAE (quantum)", "~ -1", "error ~ O(1/queries): quadratic edge at tight eps"],
-                ["Monte-Carlo", "~ -2", "error ~ O(1/sqrt(samples))"],
+                ["QAE (quantum)", "~ -1", "queries ~ O(1/eps), i.e. error ~ O(1/queries)"],
+                ["Monte-Carlo", "~ -2", "samples ~ O(1/eps^2), i.e. error ~ O(1/sqrt(samples))"],
             ],
         },
         "prose": ("Overnight triage of quantum-finance methods (QAE / QAOA / fraud). The QAE "
                   "scaling curve shows the quadratic edge - but only at tight accuracy; at coarse "
                   "eps the fixed per-round cost lets classical win. Honest, not hyped."),
-        "provenance": "Triage-lab worktree REPORT.md; same QAE math as the pricer track.",
+        "provenance": ("Triage-lab worktree REPORT.md (worktree archived; measured figure "
+                       "cached in results/figures/); same QAE math as the pricer track."),
     },
 ]
 
@@ -89,6 +93,6 @@ SUMMARY = {
     "headlines": [
         {"label": "Cognition", "value": "q = -0.003", "sub": "parameter-free QQ-equality holds"},
         {"label": "Pricing", "value": "O(1/eps) vs O(1/eps^2)", "sub": "quadratic MC speedup"},
-        {"label": "Triage", "value": "slope -1 vs -2", "sub": "QAE scaling edge"},
+        {"label": "Triage", "value": "cost slope -1 vs -2", "sub": "queries vs target eps (measured)"},
     ],
 }

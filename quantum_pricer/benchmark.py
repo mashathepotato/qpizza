@@ -260,12 +260,29 @@ def queries_to_accuracy(S0, K, r, sigma, T, M, option="european", kind="call",
     return rows
 
 
+def _fig_style():
+    """Apply the shared repo style (results/style.py); degrade gracefully when the
+    module is vendored without it. Returns (PALETTE, caption_fn, provenance_fn)."""
+    try:
+        from results import style as _style
+        _style.apply_style()
+        return _style.PALETTE, _style.caption, _style.provenance
+    except Exception:  # pragma: no cover - standalone fallback
+        palette = dict(quantum="#2a6f97", classical="#c44536", accent="#2a9d8f",
+                       muted="#8d99ae", ink="#22223b", grid="#d7d9e0")
+        return palette, (lambda fig, text: None), (lambda fig, text: None)
+
+
+_PROVENANCE = "qpizza quantum_pricer.benchmark — ground truth: exact CRR tree"
+
+
 def save_complexity_plot(rows, path="quantum_pricer/complexity.png"):
     """Log-log query-complexity plot: x = 1/eps, y = queries.
 
     Plots analytic MC (slope ~2), empirical QAE points (where meaningful), and the
     theoretical QAE 1/eps reference line (slope ~1). Empirical log-log slopes are
     fitted via np.polyfit and ANNOTATED in the legend so ~2 vs ~1 is verifiable.
+    Saturated empirical points are annotated on the figure itself.
     """
     import matplotlib
     matplotlib.use("Agg")
@@ -287,36 +304,48 @@ def save_complexity_plot(rows, path="quantum_pricer/complexity.png"):
         xs, ys = zip(*pts)
         return list(xs), list(ys)
 
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    P, caption, provenance = _fig_style()
+    fig, ax = plt.subplots(figsize=(7.6, 5.0))
 
     mc_x, mc_y = _series("classical_mc", "theoretical")
     if mc_x:
         s = _fit_slope(mc_x, mc_y)
-        lab = "classical MC (analytic CLT)"
+        lab = "classical MC — analytic CLT (THEORETICAL)"
         if s is not None:
-            lab += f", slope={s:.2f}"
-        ax.loglog(mc_x, mc_y, "s-", color="tab:red", label=lab)
+            lab += f", slope = {s:.2f}"
+        ax.loglog(mc_x, mc_y, "s-", color=P["classical"], lw=1.8, ms=6, label=lab)
 
     qt_x, qt_y = _series("qae", "theoretical")
     if qt_x:
         s = _fit_slope(qt_x, qt_y)
-        lab = r"QAE theory $\pi/2\varepsilon$"
+        lab = r"QAE — theory $\pi/2\varepsilon$ (THEORETICAL)"
         if s is not None:
-            lab += f", slope={s:.2f}"
-        ax.loglog(qt_x, qt_y, "--", color="tab:blue", label=lab)
+            lab += f", slope = {s:.2f}"
+        ax.loglog(qt_x, qt_y, "--", color=P["quantum"], lw=1.8, label=lab)
 
     qe_x, qe_y = _series("qae", "empirical")
     if qe_x:
-        ax.loglog(qe_x, qe_y, "o", color="tab:blue", markersize=8,
-                  label="QAE empirical (IAE)")
+        ax.loglog(qe_x, qe_y, "o", color=P["quantum"], markersize=9,
+                  markerfacecolor="white", markeredgewidth=1.8,
+                  label="QAE — empirical IAE queries (SIMULATED)")
+        # annotate saturation when the points have stopped growing with 1/eps
+        if len(qe_y) >= 2 and qe_y[-1] <= qe_y[-2] * 1.05:
+            ax.annotate("IAE schedule saturates at small $M$\n"
+                        "(honest simulator artifact — reported, not hidden)",
+                        xy=(qe_x[-1], qe_y[-1]), xytext=(0.97, 0.42),
+                        textcoords="axes fraction", ha="right", fontsize=9,
+                        color=P["ink"],
+                        arrowprops=dict(arrowstyle="->", color=P["muted"], lw=1.2))
 
     ax.set_xlabel(r"$1/\varepsilon$  (target accuracy)")
-    ax.set_ylabel("oracle queries / samples to reach $\\varepsilon$")
-    ax.set_title("Query complexity: classical $O(1/\\varepsilon^2)$ "
-                 "vs quantum amplitude estimation $O(1/\\varepsilon)$")
-    ax.legend()
+    ax.set_ylabel(r"oracle queries / samples to reach $\varepsilon$")
+    ax.set_title(r"Query complexity: classical $O(1/\varepsilon^2)$ vs QAE $O(1/\varepsilon)$")
+    ax.legend(loc="lower right", fontsize=9)
     fig.tight_layout()
-    fig.savefig(path, dpi=130)
+    caption(fig, "Cost to reach target accuracy ε (log–log). Lines are THEORETICAL "
+                 "(analytic CLT for MC; π/2ε for QAE); circles are SIMULATED IAE query counts.")
+    provenance(fig, _PROVENANCE)
+    fig.savefig(path)
     plt.close(fig)
     return path
 
@@ -327,7 +356,9 @@ def save_speedup_plot(rows, path="quantum_pricer/speedup.png"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(6, 4))
+    P, caption, provenance = _fig_style()
+    colors = {"classical_mc": P["classical"], "qae": P["quantum"], "qsvt": P["accent"]}
+    fig, ax = plt.subplots(figsize=(7.0, 4.8))
     for method in sorted({r["method"] for r in rows}):
         pts = sorted((r["queries"], r["abs_error"]) for r in rows
                      if r["method"] == method
@@ -336,13 +367,16 @@ def save_speedup_plot(rows, path="quantum_pricer/speedup.png"):
         if not pts:
             continue
         xs, ys = zip(*pts)
-        ax.loglog(xs, ys, "o-", label=method)
+        ax.loglog(xs, ys, "o-", lw=1.6, ms=6, label=method,
+                  color=colors.get(method, P["muted"]))
     ax.set_xlabel("queries / samples")
     ax.set_ylabel("absolute price error (vs exact tree)")
-    ax.set_title("Error vs queries: classical 1/sqrt(N) vs quantum 1/N")
-    ax.legend()
+    ax.set_title(r"Error vs queries: classical $1/\sqrt{N}$ vs quantum $1/N$ (single seed)")
+    ax.legend(fontsize=9)
     fig.tight_layout()
-    fig.savefig(path, dpi=130)
+    caption(fig, "Single-seed diagnostic; prefer the seed-averaged RMS figure for slopes.")
+    provenance(fig, _PROVENANCE)
+    fig.savefig(path)
     plt.close(fig)
     return path
 
@@ -374,15 +408,26 @@ def save_speedup_plot_rms(rows, path="quantum_pricer/speedup.png"):
         xs, ys = zip(*pts)
         return list(xs), list(ys)
 
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    P, caption, provenance = _fig_style()
+    fig, ax = plt.subplots(figsize=(7.6, 5.0))
+
+    def _guide(x0, y0, slope, x1, label):
+        """Dotted reference line of given log-log slope anchored at (x0, y0)."""
+        xs = np.geomspace(x0, x1, 50)
+        ys = y0 * (xs / x0) ** slope
+        ax.loglog(xs, ys, ":", color=P["muted"], lw=1.2, zorder=1)
+        ax.annotate(label, xy=(xs[-1], ys[-1]), xytext=(4, 0),
+                    textcoords="offset points", fontsize=8.5,
+                    color=P["muted"], va="center")
 
     mc_x, mc_y = _pts(lambda r: r["method"] == "classical_mc")
     if mc_x:
         s = _fit_slope(mc_x, mc_y)
-        lab = "classical MC ($1/\\sqrt{N}$)"
+        lab = r"classical MC ($1/\sqrt{N}$)"
         if s is not None:
-            lab += f", slope={s:.2f}"
-        ax.loglog(mc_x, mc_y, "s-", color="tab:red", label=lab)
+            lab += f", fitted slope = {s:.2f}"
+        ax.loglog(mc_x, mc_y, "s-", color=P["classical"], lw=1.8, ms=6, label=lab)
+        _guide(mc_x[0], mc_y[0], -0.5, mc_x[-1], r"$-\frac{1}{2}$")
 
     saturated = any(r["method"] == "qae" and r.get("note") == "qae_saturated_theory"
                     and r["n_seeds"] == 0 for r in rows)
@@ -390,31 +435,36 @@ def save_speedup_plot_rms(rows, path="quantum_pricer/speedup.png"):
         # empirical (saturated) QAE points + dashed theoretical pi/(2 eps) line
         qe_x, qe_y = _pts(lambda r: r["method"] == "qae" and r["n_seeds"] > 0)
         if qe_x:
-            ax.loglog(qe_x, qe_y, "o", color="tab:blue", markersize=8,
-                      label="QAE empirical (saturated)")
+            ax.loglog(qe_x, qe_y, "o", color=P["quantum"], markersize=9,
+                      markerfacecolor="white", markeredgewidth=1.8,
+                      label="QAE empirical (saturated — see caption)")
         qt_x, qt_y = _pts(lambda r: r["method"] == "qae" and r["n_seeds"] == 0)
         if qt_x:
             s = _fit_slope(qt_x, qt_y)
-            lab = "QAE theory $\\pi/2\\varepsilon$"
+            lab = r"QAE theory $\pi/2\varepsilon$"
             if s is not None:
-                lab += f", slope={s:.2f}"
-            ax.loglog(qt_x, qt_y, "--", color="tab:blue", label=lab)
+                lab += f", slope = {s:.2f}"
+            ax.loglog(qt_x, qt_y, "--", color=P["quantum"], lw=1.8, label=lab)
     else:
         qae_x, qae_y = _pts(lambda r: r["method"] == "qae")
         if qae_x:
             s = _fit_slope(qae_x, qae_y)
-            lab = "QAE finite-shots ($1/N$)"
+            lab = "QAE finite shots ($1/N$)"
             if s is not None:
-                lab += f", slope={s:.2f}"
-            ax.loglog(qae_x, qae_y, "o-", color="tab:blue", label=lab)
+                lab += f", fitted slope = {s:.2f}"
+            ax.loglog(qae_x, qae_y, "o-", color=P["quantum"], lw=1.8, ms=7, label=lab)
+            _guide(qae_x[0], qae_y[0], -1.0, qae_x[-1], r"$-1$")
 
     ax.set_xlabel("queries (QAE) / samples (MC)")
     ax.set_ylabel("RMS price error vs exact tree")
-    ax.set_title("Empirical RMS error vs queries: classical "
-                 "$1/\\sqrt{N}$ vs QAE $1/N$")
-    ax.legend()
+    ax.set_title(r"Empirical RMS error vs work: classical $1/\sqrt{N}$ vs QAE $1/N$")
+    ax.legend(loc="lower left", fontsize=9)
     fig.tight_layout()
-    fig.savefig(path, dpi=130)
+    caption(fig, "SIMULATED, seed-averaged (RMS over 8 seeds per budget); ground truth = "
+                 "exact tree. QAE runs with finite shots so its estimation error is genuine. "
+                 "Dotted guides show the ideal slopes (MC −½, QAE −1).")
+    provenance(fig, _PROVENANCE)
+    fig.savefig(path)
     plt.close(fig)
     return path
 
@@ -500,36 +550,44 @@ def save_depth_crossover_plot(rows, path="quantum_pricer/depth_crossover.png"):
     Ms = [r["M"] for r in rows]
     ham = [r["hamming_cz"] for r in rows]
     naive_pts = [(r["M"], r["naive_cz"]) for r in rows if r["naive_cz"] is not None]
+    infeasible_Ms = [r["M"] for r in rows if r["naive_cz"] is None]
 
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    P, caption, provenance = _fig_style()
+    fig, ax = plt.subplots(figsize=(7.6, 5.0))
     if naive_pts:
         nx, ny = zip(*naive_pts)
-        ax.semilogy(nx, ny, "s-", color="tab:red",
-                    label="naive $2^M$ oracle (synthesis capped)")
-    ax.semilogy(Ms, [max(h, 1) for h in ham], "o-", color="tab:blue",
-                label="Hamming-weight poly($M$)")
+        ax.semilogy(nx, ny, "s-", color=P["classical"], lw=1.8, ms=6,
+                    label="naive $2^M$ oracle (MEASURED transpile)")
+    ax.semilogy(Ms, [max(h, 1) for h in ham], "o-", color=P["quantum"], lw=1.8,
+                ms=6, label="Hamming-weight poly($M$) (MEASURED transpile)")
+
+    # shade the region where the naive oracle cannot even be synthesized
+    if infeasible_Ms and naive_pts:
+        lo = (naive_pts[-1][0] + infeasible_Ms[0]) / 2.0
+        ax.axvspan(lo, max(Ms) + 0.5, color=P["classical"], alpha=0.08, zorder=0)
+        ax.text((lo + max(Ms)) / 2.0, ax.get_ylim()[1] * 0.5,
+                "naive $2^M$ oracle\nunsynthesizable\n(this IS the result)",
+                ha="center", va="top", fontsize=9, color=P["classical"])
 
     # crossover: smallest M where both are present and Hamming < naive
     crossover = next((r["M"] for r in rows if r["naive_cz"] is not None
                       and r["hamming_cz"] < r["naive_cz"]), None)
     if crossover is not None:
-        ax.axvline(crossover, color="gray", ls=":", lw=1)
-        ax.annotate(f"crossover M={crossover}", xy=(crossover, max(ham)),
-                    xytext=(5, 5), textcoords="offset points", color="gray")
-
-    if naive_pts and len(naive_pts) >= 2:
-        ax.annotate("naive grows ~exponentially\n(truncated: $2^M$ infeasible)",
-                    xy=(naive_pts[-1][0], naive_pts[-1][1]),
-                    xytext=(-10, -30), textcoords="offset points",
-                    color="tab:red", fontsize=8, ha="right")
+        ax.axvline(crossover, color=P["muted"], ls=":", lw=1.2)
+        ax.annotate(f"crossover $M={crossover}$", xy=(crossover, max(ham)),
+                    xytext=(6, 6), textcoords="offset points", color=P["ink"],
+                    fontsize=9)
 
     ax.set_xlabel("number of time steps $M$")
-    ax.set_ylabel("CZ count after transpile to IQM {r, cz} (log scale)")
-    ax.set_title("Phase-oracle CZ count vs M: naive $2^M$ vs "
-                 "Hamming-weight poly($M$)")
-    ax.legend()
+    ax.set_ylabel(r"CZ count after transpile to IQM $\{r, cz\}$ (log scale)")
+    ax.set_title(r"Phase-oracle CZ count vs $M$: naive $2^M$ vs Hamming-weight poly($M$)")
+    ax.legend(loc="upper left", fontsize=9)
     fig.tight_layout()
-    fig.savefig(path, dpi=130)
+    caption(fig, "Two-qubit gate counts measured after transpiling to the IQM native basis "
+                 "(optimization level 1). Naive synthesis is capped at M=12 — beyond that the "
+                 "2^M-entry oracle cannot be built at all; the Hamming-weight route stays poly(M).")
+    provenance(fig, _PROVENANCE)
+    fig.savefig(path)
     plt.close(fig)
     return path
 

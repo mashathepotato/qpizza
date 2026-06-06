@@ -354,7 +354,7 @@ def render_html(state, log_lines):
           <tr><td>T (years)</td><td>{_fmt(state.get('T'), 2)}</td></tr>
           <tr><td>M (tree steps)</td><td>{_e(state.get('M'))}</td></tr>
           <tr><td>ticker</td><td>{_e(meta.get('ticker', 'NOKIA.HE'))}</td></tr>
-          <tr><td>date range</td><td>{_e(meta.get('start', '?'))} &rarr; {_e(meta.get('end', '?'))}</td></tr>
+          <tr><td>calibration window</td><td>{_e(meta.get('calib_start', '?'))} &rarr; {_e(meta.get('calib_end', '?'))} (&le; asof {_e(meta.get('asof', '?'))})</td></tr>
           <tr><td>n_obs</td><td>{_e(meta.get('n_obs', '?'))}</td></tr>
         </table>
       </div>"""

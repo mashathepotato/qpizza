@@ -4,7 +4,7 @@ Newton could not predict 'the madness of people'; Feynman said classical intuiti
 
 - **Cognition** - q = -0.003 (parameter-free QQ-equality holds)
 - **Pricing** - O(1/eps) vs O(1/eps^2) (quadratic MC speedup)
-- **Triage** - slope -1 vs -2 (QAE scaling edge)
+- **Triage** - cost slope -1 vs -2 (queries vs target eps (measured))
 
 ## The Madness of People Is Quantum
 Real question-order data obeys the parameter-free QQ-equality (q = -0.003).
@@ -13,4 +13,4 @@ Real question-order data obeys the parameter-free QQ-equality (q = -0.003).
 QNDM+QAE reaches accuracy eps in O(1/eps) oracle queries vs MC's O(1/eps^2).
 
 ## Triage Lab - QAE scaling advantage
-QAE error falls with slope ~ -1 vs classical Monte-Carlo ~ -2 in queries.
+QAE cost grows as O(1/eps) (log-log slope -1 vs target accuracy eps) vs Monte-Carlo's O(1/eps^2) (slope -2) - quadratic speedup at tight eps.
