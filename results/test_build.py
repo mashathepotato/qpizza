@@ -72,3 +72,30 @@ def test_each_track_has_required_fields():
 def test_summary_has_headline_numbers():
     from results import manifest
     assert len(manifest.SUMMARY["headlines"]) == 3
+
+
+def test_embed_roundtrips(tmp_path):
+    from results import build_dashboard as b
+    out = tmp_path / "x.png"
+    from results import style
+    style.table_image(["a"], [["1"]], str(out))
+    uri = b.embed(out.read_bytes())
+    assert uri.startswith("data:image/png;base64,")
+
+
+def test_collect_missing_returns_none():
+    from results import build_dashboard as b
+    assert b.collect("/no/such/figure.png") is None
+
+
+def test_build_emits_html(tmp_path):
+    from results import build_dashboard as b
+    html_path = tmp_path / "index.html"
+    md_path = tmp_path / "RESULTS.md"
+    b.main(out_html=str(html_path), out_md=str(md_path),
+           figures_dir=str(tmp_path / "figures"))
+    assert html_path.exists()
+    text = html_path.read_text()
+    assert "The Madness of People Is Quantum" in text   # cognition always available
+    assert "data:image/png;base64," in text             # at least one embedded figure
+    assert md_path.exists() and md_path.stat().st_size > 0
