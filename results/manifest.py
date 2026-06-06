@@ -42,8 +42,9 @@ TRACKS = [
         "key": "pricer",
         "title": "Quantum Option Pricer - quadratic Monte-Carlo speedup",
         "claim": "QNDM+QAE reaches accuracy eps in O(1/eps) oracle queries vs MC's O(1/eps^2).",
-        "figure": _p("results", "figures", "price_forecast.png"),
+        "figure": _p("results", "figures", "benchmark_scoreboard.png"),
         "extra_figures": [
+            _p("results", "figures", "price_forecast.png"),
             _p("results", "figures", "backtest_rolling.png"),
             _p("results", "figures", "backtest_drift_compare.png"),
             _p("results", "figures", "backtest_routes_timeseries.png"),
@@ -56,6 +57,13 @@ TRACKS = [
         ],
         # Per-figure captions (keyed by basename) shown under each image.
         "captions": {
+            "benchmark_scoreboard.png": ("Summary scoreboard (all numbers from real runs). Our "
+                                         "QNDM-QAE matches classical and quantum-SOTA prices "
+                                         "(error 4e-5 vs exact tree) at ~6x shallower circuit depth "
+                                         "than the SOTA lognormal-loader baseline (16 vs 100 CZ), "
+                                         "with the same O(1/eps) quantum query advantage over MC's "
+                                         "O(1/eps^2). No wall-clock speedup over MC is claimed; the "
+                                         "win is loading depth + asymptotic query scaling."),
             "price_forecast.png": ("What we price: from today's NOKIA.HE spot "
                                    "S0=13.09 EUR, the CRR risk-neutral tree predicts the "
                                    "price distribution over the 1-year horizon (E[S_T]=13.49, "
