@@ -48,12 +48,9 @@ TRACKS = [
             _p("results", "figures", "backtest_rolling.png"),
             _p("results", "figures", "backtest_drift_compare.png"),
             _p("results", "figures", "backtest_routes_timeseries.png"),
-            _p("results", "figures", "backtest_walkforward.png"),
             _p("results", "figures", "model_results.png"),
-            _p("results", "figures", "error_vs_queries.png"),
             _p("results", "figures", "speedup_compare.png"),
             _p("quantum_pricer", "complexity.png"),
-            _p("quantum_pricer", "speedup.png"),
             _p("quantum_pricer", "depth_crossover.png"),
         ],
         # Per-figure captions (keyed by basename) shown under each image.
@@ -92,21 +89,10 @@ TRACKS = [
                                                "Fourier is statevector-exact (~1e-8), QAE ~2e-5 "
                                                "(beats its 0.01 target), MC ~1.6e-3 (sampling), "
                                                "QSVT ~4.5e-3 (straddle floor) - all routes agree."),
-            "backtest_walkforward.png": ("Walk-forward backtest: the year is cut into 60-day "
-                                         "chunks; each forecast cone (M=8 steps, ~3.75 trading "
-                                         "days/step) is calibrated on the prior 30 days (shaded) "
-                                         "and tested on the next 30 vs the realized price (black). "
-                                         "Honest: the risk-neutral cone is flat, so a trending "
-                                         "stock rides its upper edge. Bottom: all four routes "
-                                         "reproduce the exact-tree option price each chunk."),
             "model_results.png": ("Actual run of all four routes: each recovers the "
                                   "exact-tree price (M=3); right panel is the real "
                                   "transpiled IQM CZ depth + qubits. QAE is shallowest "
                                   "(~16 CZ); QSVT is the deep, honest straddle route."),
-            "error_vs_queries.png": ("Estimation error vs oracle queries (cf. "
-                                     "Stamatopoulos 2020, Fig. 11): AE slope -0.80 vs "
-                                     "MC -0.58. Honest: AE is under the ideal -1.0 due "
-                                     "to small-M finite-shot saturation; queries != samples."),
             "speedup_compare.png": ("Head-to-head empirical speedup: estimation error vs oracle "
                                     "queries/samples for Monte Carlo, the Greek-paper SOTA oracle-QAE "
                                     "(Stamatopoulos), and our QNDM-QAE + QSVT. Our QNDM-QAE hits the "
@@ -117,8 +103,6 @@ TRACKS = [
             "complexity.png": ("Query complexity to reach accuracy eps: MC O(1/eps^2) vs "
                                "QAE O(1/eps) - the textbook quadratic separation (analytic "
                                "theory curves; cite Montanaro 2015)."),
-            "speedup.png": ("Seed-averaged empirical RMS error vs queries: QAE ~ -0.80, "
-                            "MC ~ -0.58 - the measured counterpart to the complexity plot."),
             "depth_crossover.png": ("Novelty: Hamming-weight poly(M) phase oracle vs naive "
                                     "2^M CZ depth. Naive infeasible from M~14; Hamming prices "
                                     "M=14 to 3e-4 error on 19 qubits. The strongest result."),

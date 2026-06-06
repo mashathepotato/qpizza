@@ -41,13 +41,6 @@ The pricer scripts need the pricer venv + network (yfinance):
 - **Caveat:** M=3 (small) — shows correctness, not scale.
 - **Regenerate:** `results/model_experiments.py`.
 
-### `error_vs_queries.png`  — empirical speedup (cf. Stamatopoulos Fig. 11)
-- **What:** estimation error ε vs number of oracle queries / samples (log-log).
-- **Read:** Amplitude Estimation descends steeper (slope ~−0.80) than Monte Carlo
-  (~−0.58); guides show the ideal −1 and −1/2.
-- **Caveat:** AE is under the ideal −1.0 (small-M finite-shot saturation); queries ≠ samples.
-- **Regenerate:** `results/fig11_error_vs_queries.py`.
-
 ### `speedup_compare.png`  — head-to-head speedup (MC vs Greek-SOTA vs ours)
 - **What:** estimation error vs oracle queries / samples (log-log) for Monte Carlo, the
   Greek-paper SOTA oracle-QAE (Stamatopoulos), and our QNDM-QAE + QSVT — all real runs,
@@ -64,11 +57,6 @@ The pricer scripts need the pricer venv + network (yfinance):
 - **What:** queries to reach accuracy ε: MC O(1/ε²) (slope 2.0) vs QAE O(1/ε) (slope 1.0).
 - **Read:** the quadratic separation — the core theoretical advantage.
 - **Caveat:** both curves are analytic/theoretical (cite Montanaro 2015), not measured.
-- **Regenerate:** part of `quantum_pricer/demo.py`.
-
-### `speedup.png`  — empirical RMS error vs queries
-- **What:** seed-averaged measured RMS error vs queries; the measured counterpart to
-  `complexity.png` (QAE ~−0.80, MC ~−0.58).
 - **Regenerate:** part of `quantum_pricer/demo.py`.
 
 ### `depth_crossover.png`  — the novelty
@@ -103,12 +91,6 @@ The pricer scripts need the pricer venv + network (yfinance):
   overshoots reversals (coverage 57% vs 67%).
 - **Caveat:** 30-day μ̂ is statistically noisy; this is a model-assumption comparison.
 - **Regenerate:** `results/backtest_drift_compare.py`.
-
-### `backtest_walkforward.png`  — non-overlapping chunked backtest
-- **What:** the earlier version: 4 non-overlapping 60-day chunks. Top: per-chunk forecast
-  cone vs realized. Bottom: per-chunk option price by all four routes vs exact tree (bars).
-- **Read:** complements the rolling figure; the bars make per-chunk route agreement explicit.
-- **Regenerate:** `results/backtest.py`.
 
 ---
 
