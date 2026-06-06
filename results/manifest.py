@@ -44,6 +44,7 @@ TRACKS = [
         "claim": "QNDM+QAE reaches accuracy eps in O(1/eps) oracle queries vs MC's O(1/eps^2).",
         "figure": _p("results", "figures", "price_forecast.png"),
         "extra_figures": [
+            _p("results", "figures", "backtest_walkforward.png"),
             _p("results", "figures", "model_results.png"),
             _p("results", "figures", "error_vs_queries.png"),
             _p("quantum_pricer", "complexity.png"),
@@ -56,6 +57,13 @@ TRACKS = [
                                    "S0=13.09 EUR, the CRR risk-neutral tree predicts the "
                                    "price distribution over the 1-year horizon (E[S_T]=13.49, "
                                    "forward). The terminal distribution is what the call is priced on."),
+            "backtest_walkforward.png": ("Walk-forward backtest: the year is cut into 60-day "
+                                         "chunks; each forecast cone (M=8 steps, ~3.75 trading "
+                                         "days/step) is calibrated on the prior 30 days (shaded) "
+                                         "and tested on the next 30 vs the realized price (black). "
+                                         "Honest: the risk-neutral cone is flat, so a trending "
+                                         "stock rides its upper edge. Bottom: all four routes "
+                                         "reproduce the exact-tree option price each chunk."),
             "model_results.png": ("Actual run of all four routes: each recovers the "
                                   "exact-tree price (M=3); right panel is the real "
                                   "transpiled IQM CZ depth + qubits. QAE is shallowest "
