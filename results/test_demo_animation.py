@@ -13,8 +13,9 @@ def test_html_is_self_contained_and_loads_all_four_jsons():
     assert h.lstrip().lower().startswith("<!doctype html")
     for f in ("results.json", "prices.json", "convergence.json", "hardware.json"):
         assert f in h, f"frontend must fetch {f}"
-    # no framework / CDN dependency -> demo survives dead wifi
-    assert "http://" not in h and "https://" not in h
+    # only the optional localhost live-server probe may reference a URL; no CDNs
+    urls = [l for l in h.splitlines() if "http://" in l or "https://" in l]
+    assert all("localhost:5057" in l for l in urls), urls
 
 
 def test_html_has_navigation_and_cockpit_toggle():

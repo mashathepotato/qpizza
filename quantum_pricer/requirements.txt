@@ -9,3 +9,4 @@ numpy>=1.26
 scipy>=1.11
 matplotlib>=3.8
 pytest>=8.0
+flask>=3.0          # optional live "re-run a route" server (results/live_server.py)

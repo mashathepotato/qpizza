@@ -168,7 +168,7 @@ RENDERERS[2] = function(el){ // renderAct2
    +'<p class="cap">Every model estimates the option price at once against the ground truth line '
    +'(exact CRR tree = <span class="num">€'+gt.toFixed(4)+'</span>). Our exact/Fourier route '
    +'<b>snaps</b> to truth; Monte Carlo creeps; the textbook SOTA lags on its costly loading oracle.</p>'
-   + bars;
+   + bars + liveControls();
 };
 
 // ---- Act 3: quadratic speedup (error vs QUERIES) ---------------------------
@@ -266,7 +266,31 @@ function renderCockpit(el){
   if(RENDERERS[3]) RENDERERS[3](document.getElementById('ck-conv'));
 }
 
-loadData().then(show);
+const LIVE = {url:'http://localhost:5057', on:false};
+async function probeLive(){
+  try{ const r=await fetch(LIVE.url+'/health',{signal:AbortSignal.timeout(600)});
+       LIVE.on = r.ok; }catch(e){ LIVE.on=false; }
+}
+async function rerun(route){
+  if(!LIVE.on) return;
+  const p=DATA.prices||{};
+  const qs='S0='+(p.S0||100)+'&K='+(p.K||100)+'&r='+(p.r||0.05)
+          +'&sigma='+(p.sigma||0.2)+'&T='+(p.T||1)+'&M=3&eps=0.05';
+  try{
+    const res=await (await fetch(LIVE.url+'/api/rerun/'+route+'?'+qs)).json();
+    const box=document.getElementById('live-out');
+    if(box) box.textContent = route+' → €'+res.price.toFixed(4)+' ('+res.queries+' queries, err '
+                              +res.abs_error.toFixed(4)+')';
+  }catch(e){}
+}
+function liveControls(){
+  if(!LIVE.on) return '';                 // server absent → nothing rendered
+  return '<div class="panel" style="margin-top:10px"><div class="label">live (server up)</div>'
+       + '<button onclick="rerun(\'qae\')">⟳ re-run QAE</button> '
+       + '<button onclick="rerun(\'mc\')">⟳ re-run Monte Carlo</button>'
+       + '<div id="live-out" class="label" style="margin-top:6px"></div></div>';
+}
+Promise.all([loadData(), probeLive()]).then(show);
 </script>
 </body>
 </html>
