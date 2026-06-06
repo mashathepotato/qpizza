@@ -1,0 +1,4 @@
+# Experimental sidecar deps (on top of numpy/scipy/matplotlib/yfinance).
+# Install into the quantum_pricer venv:
+#   quantum_pricer/.venv/bin/python -m pip install pennylane
+pennylane>=0.35
