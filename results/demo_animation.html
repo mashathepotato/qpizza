@@ -94,7 +94,7 @@ function polyline(pts, color, w){
 }
 function scalePath(closes, W, H){
   const lo=Math.min(...closes), hi=Math.max(...closes), span=(hi-lo)||1;
-  return closes.map((c,i)=>[ i*(W/(closes.length-1)), H-(c-lo)/span*H ]);
+  return closes.map((c,i)=>[ i*(W/Math.max(closes.length-1,1)), H-(c-lo)/span*H ]);
 }
 
 // ---- Act 0: the madness of people ------------------------------------------ renderAct0
@@ -138,6 +138,72 @@ RENDERERS[1] = function(el){
    +'radial-gradient(circle at 40% 40%,#6c8cff55,transparent 70%),'
    +'radial-gradient(circle at 65% 60%,#9b6cff44,transparent 70%)">'
    +'<div class="label">superposition of '+N+' paths</div></div></div>';
+};
+
+// ---- Act 2: the race -------------------------------------------------------
+function routeColor(name){
+  const s=name.toLowerCase();
+  if(s.includes('sota')) return 'var(--sota)';
+  if(s.includes('monte')) return 'var(--classical)';
+  if(s.includes('qsvt')) return 'var(--qsvt)';
+  return 'var(--quantum)';
+}
+RENDERERS[2] = function(el){ // renderAct2
+  const R = DATA.results;
+  const gt = R ? R.references.tree_price : (DATA.conv? DATA.conv.ground_truth : 1);
+  const routes = R ? R.routes : [];
+  let bars = routes.map(rt=>{
+    const acc = 1 - Math.min(1, Math.abs(rt.abs_err)/ (0.06)); // closeness to truth (0..1)
+    const w = Math.max(8, acc*100);
+    const q = rt.queries==null ? 'exact (statevector)' : (rt.queries.toLocaleString()+' queries');
+    return '<div style="margin:6px 0"><div class="label">'+rt.name+' — €'+rt.price.toFixed(4)
+         + ' · '+q+'</div><div style="height:14px;border-radius:7px;border-left:3px dashed var(--gt);'
+         + 'width:'+w+'%;background:'+routeColor(rt.name)+'"></div></div>';
+  }).join('');
+  el.innerHTML =
+    '<h1>Read the price without collapsing it</h1>'
+   +'<p class="cap">Every model estimates the option price at once against the ground truth line '
+   +'(exact CRR tree = <span class="num">€'+gt.toFixed(4)+'</span>). Our exact/Fourier route '
+   +'<b>snaps</b> to truth; Monte Carlo creeps; the textbook SOTA lags on its costly loading oracle.</p>'
+   + bars;
+};
+
+// ---- Act 3: quadratic speedup (error vs QUERIES) ---------------------------
+RENDERERS[3] = function(el){ // renderAct3
+  const c = DATA.conv;
+  const W=820,H=320, pad=40;
+  function logbox(series){
+    const all=[].concat(...Object.values(series));
+    const xs=all.map(p=>Math.log10(p.x)), ys=all.map(p=>Math.log10(p.y));
+    const xlo=Math.min(...xs),xhi=Math.max(...xs),ylo=Math.min(...ys),yhi=Math.max(...ys);
+    const sx=x=>pad+(Math.log10(x)-xlo)/((xhi-xlo)||1)*(W-2*pad);
+    const sy=y=>H-pad-(Math.log10(y)-ylo)/((yhi-ylo)||1)*(H-2*pad);
+    return {sx,sy};
+  }
+  let body='';
+  if(c && c.series.classical_mc.length && c.series.qae.length){
+    const {sx,sy}=logbox(c.series);
+    const mk=(pts,col)=>polyline(pts.map(p=>[sx(p.x),sy(p.y)]),col,2.4);
+    body = '<svg viewBox="0 0 '+W+' '+H+'">'
+         + mk(c.series.classical_mc,'var(--classical)')
+         + mk(c.series.qae,'var(--quantum)')
+         + '<text x="'+(W-pad)+'" y="'+(H-12)+'" fill="var(--muted)" font-size="12" '
+         + 'text-anchor="end">'+c.axis_label+'</text></svg>'
+         + '<p class="cap">Monte Carlo slope <span class="num">'
+         + (c.slopes.classical_mc!=null?c.slopes.classical_mc.toFixed(2):'~-0.5')
+         + '</span> (error ~ 1/&radic;N) vs QAE slope <span class="num">'
+         + (c.slopes.qae!=null?c.slopes.qae.toFixed(2):'~-1.0')
+         + '</span> (error ~ 1/queries) &rarr; <b>quadratically fewer queries at tight accuracy.</b></p>';
+  } else {
+    body = '<p class="cap">convergence.json not loaded.</p>';
+  }
+  el.innerHTML =
+    '<h1>Quadratic speedup</h1>'
+   + body
+   + '<p class="cap" style="opacity:.75">Honesty: the axis is <b>oracle queries / samples — '
+   + 'NOT wall-clock time</b> (on today\'s hardware quantum is slower in seconds; the win is '
+   + 'error-per-query). The QAE lead appears only at tight accuracy. QSVT carries a polynomial '
+   + 'approximation <b>floor</b> (~1–2%) and plateaus rather than reaching zero.</p>';
 };
 
 loadData().then(show);

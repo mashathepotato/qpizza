@@ -30,3 +30,14 @@ def test_acts_1_2_have_madness_and_loading_content():
     assert "2^M" in h or "2<sup>M" in h          # 2^M paths messaging
     assert "no loading oracle" in h.lower() or "no distribution-loading" in h.lower()
     assert "renderAct0" in h and "renderAct1" in h
+
+
+def test_acts_3_4_have_race_and_speedup_with_honesty_labels():
+    h = _html()
+    assert "renderAct2" in h and "renderAct3" in h
+    assert "ground truth" in h.lower()
+    # axis must be queries/samples, never time
+    assert "queries" in h.lower()
+    assert "not wall-clock" in h.lower() or "not time" in h.lower()
+    # QSVT honesty: plateau / floor mentioned
+    assert "floor" in h.lower() or "plateau" in h.lower()
