@@ -29,3 +29,12 @@ def test_exact_tree_price_converges_to_black_scholes(base_params):
     bs = black_scholes_call(**base_params)
     price_M12 = tree.exact_tree_price(M=12, option="european", kind="call", **base_params)
     assert abs(price_M12 - bs) < 0.5  # loose; tighter convergence checked in classical tests
+
+
+def test_exact_tree_price_recombining_matches_full_enumeration(base_params):
+    # The O(M) binomial-sum European price must match the 2^M full enumeration
+    # to machine precision (they compute the same expectation, different routes).
+    for M in (6, 10):
+        full = tree.exact_tree_price(M=M, option="european", kind="call", **base_params)
+        fast = tree.exact_tree_price_recombining(M=M, kind="call", **base_params)
+        assert abs(full - fast) < 1e-9

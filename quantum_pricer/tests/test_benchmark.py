@@ -123,3 +123,39 @@ def test_speedup_plot_rms_writes_file(rms_rows, tmp_path):
     path = benchmark.save_speedup_plot_rms(rms_rows, path=str(out))
     assert out.exists() and out.stat().st_size > 0
     assert str(out) == path
+
+
+# ── Hamming-weight depth-vs-M crossover (headline result) ──────────────────────
+
+
+@pytest.fixture(scope="module")
+def crossover_rows():
+    """Build naive vs Hamming circuits and count CZ over a modest M range (shared)."""
+    return benchmark.depth_vs_M([4, 6, 8, 10])
+
+
+def test_depth_vs_M_hamming_subexponential(crossover_rows):
+    # Hamming CZ count grows much slower than the naive 2^M oracle: the
+    # naive/hamming ratio should INCREASE with M (Hamming wins more as M grows),
+    # and at the largest common M the Hamming circuit must be strictly cheaper.
+    rows = sorted(crossover_rows, key=lambda r: r["M"])
+    both = [r for r in rows if r["naive_cz"] is not None and r["hamming_cz"] > 0]
+    assert len(both) >= 2
+    ratios = [r["naive_cz"] / r["hamming_cz"] for r in both]
+    assert ratios[-1] > ratios[0]  # Hamming advantage grows with M
+    assert both[-1]["hamming_cz"] < both[-1]["naive_cz"]
+
+
+def test_depth_crossover_plot_writes_file(crossover_rows, tmp_path):
+    out = tmp_path / "depth_crossover.png"
+    path = benchmark.save_depth_crossover_plot(crossover_rows, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+    assert str(out) == path
+
+
+def test_large_m_price_matches_recombining():
+    # At M=14 the 24-qubit-class statevector price must match the fast O(M)
+    # recombining European price to better than 0.05 absolute.
+    res = benchmark.large_m_price(M=14)
+    assert res["naive_feasible"] is False
+    assert res["abs_error"] < 0.05

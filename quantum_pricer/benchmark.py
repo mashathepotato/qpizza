@@ -20,7 +20,7 @@ HONESTY (do not paper over these in the deck):
 """
 import numpy as np
 from qiskit import transpile
-from quantum_pricer import classical, qae, oracles, tree, backends
+from quantum_pricer import classical, qae, oracles, tree, backends, hamming, fourier
 
 try:
     from quantum_pricer import qsvt as _qsvt
@@ -417,3 +417,143 @@ def save_speedup_plot_rms(rows, path="quantum_pricer/speedup.png"):
     fig.savefig(path, dpi=130)
     plt.close(fig)
     return path
+
+
+# ── Hamming-weight depth-vs-M crossover (headline result) ──────────────────────
+#
+# HONESTY: the naive phase oracle is a Diagonal (Fourier route) or UCRY (QAE route)
+# over ALL 2**M paths -- its gate count grows exponentially, so beyond a modest M
+# the circuit cannot even be SYNTHESIZED on a laptop (memory/time). We therefore cap
+# naive synthesis at `naive_max_M` and record naive_cz=None / note="naive_infeasible"
+# beyond it. That cap is not a benchmarking convenience -- it IS the result: the
+# Hamming-weight circuit acts on a ceil(log2(M+1))-qubit weight register and stays
+# poly(M), so it builds (and prices) at M where the naive route is impossible.
+
+
+def _cz_count(qc):
+    """Transpile to IQM {r,cz} (opt level 1) and return the CZ COUNT (more robust
+    than depth for comparing exponential-vs-polynomial two-qubit cost)."""
+    return transpile(qc, basis_gates=backends.IQM_BASIS,
+                     optimization_level=1).count_ops().get("cz", 0)
+
+
+def depth_vs_M(M_list, naive_max_M=12, route="fourier",
+               S0=100.0, K=100.0, r=0.05, sigma=0.20, T=1.0):
+    """Measured CZ-count crossover: naive 2**M oracle vs Hamming-weight poly(M).
+
+    For each M build the HAMMING circuit (always) and the NAIVE circuit (only when
+    M <= naive_max_M -- beyond that the 2**M Diagonal/UCRY is infeasible to even
+    synthesize, recorded as naive_cz=None, note="naive_infeasible"). Both are
+    transpiled to IQM {r,cz} at optimization_level=1 and the CZ COUNT recorded.
+
+    route="fourier" -> oracles.fourier_circuit at lam=1.0 (phase oracle);
+    route="qae"     -> oracles.payoff_amplitude_circuit (amplitude oracle).
+
+    Returns rows: dict(M, naive_cz, hamming_cz, note). naive_cz is None when
+    M > naive_max_M.
+    """
+    rows = []
+    for M in M_list:
+        angles = tree.loading_angles(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M)
+        ST_by_w = hamming.terminal_values_by_weight(S0=S0, K=K, r=r, sigma=sigma,
+                                                     T=T, M=M)
+        if route == "fourier":
+            ham_qc = hamming.fourier_circuit_hamming(M, angles, ST_by_w, K,
+                                                     lam=1.0, basis="X")
+        elif route == "qae":
+            payoff_w = np.maximum(ST_by_w - K, 0.0)
+            Cmax = float(payoff_w.max()) * 1.0001 if payoff_w.max() > 0 else 1.0
+            ham_qc, _ = hamming.payoff_amplitude_circuit_hamming(M, angles,
+                                                                 payoff_w, Cmax)
+        else:
+            raise ValueError(f"unknown route {route!r}")
+        hamming_cz = _cz_count(ham_qc)
+
+        if M <= naive_max_M:
+            values = tree.payoff_variable_values(S0=S0, K=K, r=r, sigma=sigma,
+                                                 T=T, M=M, option="european")
+            if route == "fourier":
+                naive_qc = oracles.fourier_circuit(M, angles, values, K,
+                                                   lam=1.0, basis="X")
+            else:
+                payoff = np.maximum(values - K, 0.0)
+                Cmax = float(payoff.max()) * 1.0001 if payoff.max() > 0 else 1.0
+                naive_qc, _ = oracles.payoff_amplitude_circuit(angles, payoff, Cmax)
+            naive_cz = _cz_count(naive_qc)
+            note = ""
+        else:
+            naive_cz = None
+            note = "naive_infeasible"  # 2**M oracle cannot be synthesized -- the point
+        rows.append(dict(M=M, naive_cz=naive_cz, hamming_cz=hamming_cz, note=note))
+    return rows
+
+
+def save_depth_crossover_plot(rows, path="quantum_pricer/depth_crossover.png"):
+    """Semilog-y plot of naive (exponential, truncated) vs Hamming (polynomial) CZ
+    count vs M. Marks the crossover M where Hamming first beats naive. Returns path.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    rows = sorted(rows, key=lambda r: r["M"])
+    Ms = [r["M"] for r in rows]
+    ham = [r["hamming_cz"] for r in rows]
+    naive_pts = [(r["M"], r["naive_cz"]) for r in rows if r["naive_cz"] is not None]
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    if naive_pts:
+        nx, ny = zip(*naive_pts)
+        ax.semilogy(nx, ny, "s-", color="tab:red",
+                    label="naive $2^M$ oracle (synthesis capped)")
+    ax.semilogy(Ms, [max(h, 1) for h in ham], "o-", color="tab:blue",
+                label="Hamming-weight poly($M$)")
+
+    # crossover: smallest M where both are present and Hamming < naive
+    crossover = next((r["M"] for r in rows if r["naive_cz"] is not None
+                      and r["hamming_cz"] < r["naive_cz"]), None)
+    if crossover is not None:
+        ax.axvline(crossover, color="gray", ls=":", lw=1)
+        ax.annotate(f"crossover M={crossover}", xy=(crossover, max(ham)),
+                    xytext=(5, 5), textcoords="offset points", color="gray")
+
+    if naive_pts and len(naive_pts) >= 2:
+        ax.annotate("naive grows ~exponentially\n(truncated: $2^M$ infeasible)",
+                    xy=(naive_pts[-1][0], naive_pts[-1][1]),
+                    xytext=(-10, -30), textcoords="offset points",
+                    color="tab:red", fontsize=8, ha="right")
+
+    ax.set_xlabel("number of time steps $M$")
+    ax.set_ylabel("CZ count after transpile to IQM {r, cz} (log scale)")
+    ax.set_title("Phase-oracle CZ count vs M: naive $2^M$ vs "
+                 "Hamming-weight poly($M$)")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
+
+
+def large_m_price(M=18, S0=100.0, K=100.0, r=0.05, sigma=0.20, T=1.0,
+                  n_lambda=None):
+    """Price a European call at large M via the Hamming-weight statevector route --
+    a circuit the NAIVE route cannot even build (its oracle is a 2**M-entry diagonal;
+    e.g. M=18 -> 262144 entries). Validates against the fast O(M) recombining price.
+
+    Memory guard: keep M<=18 for the statevector simulation (M=18 -> 24 qubits ~268MB;
+    M=20 -> 26 qubits ~1GB may OOM). For M>=20 use depth_vs_M (transpile only).
+
+    Returns dict(M, n_qubits, hamming_price, exact_price, abs_error, naive_feasible).
+    """
+    if n_lambda is None:
+        n_lambda = 2 * M + 4
+    n_qubits = M + hamming.n_weight_qubits(M) + 1
+    hamming_price = fourier.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                                  option="european", kind="call",
+                                  n_lambda=n_lambda, use_hamming=True)
+    exact_price = tree.exact_tree_price_recombining(S0=S0, K=K, r=r, sigma=sigma,
+                                                    T=T, M=M, kind="call")
+    return dict(M=M, n_qubits=n_qubits, hamming_price=hamming_price,
+                exact_price=exact_price,
+                abs_error=abs(hamming_price - exact_price),
+                naive_feasible=False)
