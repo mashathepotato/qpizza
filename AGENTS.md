@@ -3,24 +3,30 @@
 **Project:** Junction Helsinki × OP Pohjola hackathon — Quantum Computing for Finance.
 **Team:** 2 CS + 2 physics. **Submission:** tomorrow 10:00 AM.
 
-## Chosen direction (LOCKED): "The Madness of People Is Quantum"
-We model investor irrationality with **quantum probability** (the field of *quantum cognition*).
-A quantum-circuit "investor" reproduces a real **question-order effect** that a classical
-Bayesian model provably cannot, and satisfies the parameter-free **QQ-equality** (PNAS 2014).
+## Chosen direction (LOCKED): "The Madness of People Is Quantum" → quantum option pricing
+Two layers:
+- **Motivation —** markets are non-classical (Newton's "madness of people"; Feynman). Human
+  financial decisions follow *quantum* probability (the field of *quantum cognition*). A quantum
+  "investor" reproducing a real question-order effect is our opener.
+- **Technical core —** because the market is quantum-like, we **compute with it**: a **quantum
+  option pricer** that loads all `2^M` price paths into a superposition (free, exact, `O(M)`) and
+  reads the fair price off it via **QNDM** phase encoding + **QAE/QSVT** — quadratic speed-up over
+  Monte Carlo, no costly loading oracle. Full math in [`paper/main_V2.tex`](./paper/main_V2.tex).
 
 ## ⚠️ Hard guardrail — keep in all external-facing material
 We do **NOT** claim the brain is a quantum computer (no "quantum consciousness"). We claim human
 judgment violates *classical* probability exactly as *quantum* probability predicts. Quantum-*like*
-math, not quantum neurons.
+markets, real quantum algorithms.
 
 ## Start here
 1. **[`context/VISION.md`](./context/VISION.md)** — single source of truth: pitch, science,
    build status, task board, conventions. **Read this before doing anything.**
-2. **[`context/quantum-investor.html`](./context/quantum-investor.html)** — visual explainer +
+2. **[`paper/main_V2.tex`](./paper/main_V2.tex)** — the full option-pricing derivation (the technical core).
+3. **[`context/quantum-investor.html`](./context/quantum-investor.html)** — visual explainer +
    full 24-hour plan. Open in a browser.
-3. **[`/quantum_investor`](./quantum_investor)** — working, verified code.
+4. **[`/quantum_investor`](./quantum_investor)** — the motivation demo (cognition investor), verified.
 
-## Run the code
+## Run the code (motivation demo; pricer is the build target)
 ```bash
 cd quantum_investor
 python3 -m venv .venv && source .venv/bin/activate

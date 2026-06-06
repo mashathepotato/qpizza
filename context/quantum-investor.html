@@ -216,224 +216,168 @@
   <i>classical</i> probability exactly the way <i>quantum</i> probability predicts and quantitatively fits. It's
   quantum-<i>like</i> math, not quantum neurons. Answering this proactively is a credibility win.</div>
 
-  <!-- LITERATURE IN DETAIL -->
-  <h2><span class="num">04</span>The papers, in detail (math &amp; data)</h2>
-  <p class="lead">The low-level machinery behind the idea: the shared formalism, then each key
-  paper with its <b>equations</b> and the actual <b>inputs/outputs</b> (what data went in, what
-  came out). This is the “technical depth” backbone — and where our circuit comes from.</p>
+  <!-- THE QUANTUM ENGINE: QNDM + QAE -->
+  <h2><span class="num">04</span>The quantum engine: QNDM + QAE</h2>
+  <p class="lead">Quantum cognition is the <i>motivation</i> — it says the market is genuinely a
+  superposition (of investor intentions, of price paths) rather than one fixed classical reality.
+  Once you accept that, you need machinery to <b>compute</b> on that superposition. Two quantum
+  primitives do the heavy lifting. Each is explained <b>high-level first, then the math</b>.</p>
 
-  <!-- shared formalism -->
+  <!-- QAE -->
   <div class="paper">
-    <div class="tag2">Foundation · the shared formalism</div>
-    <h3>Quantum probability as a model of judgement</h3>
-    <div class="venue">Busemeyer &amp; Bruza, <i>Quantum Models of Cognition and Decision</i>, Cambridge Univ. Press (2012)</div>
-    <p class="muted">Replace classical (Kolmogorov) probability with quantum probability. A belief is a
-    vector; an answer is a projection; the order of projections matters when they don't commute.</p>
+    <div class="tag2">Primitive 1 · the speedup engine</div>
+    <h3>QAE — Quantum Amplitude Estimation</h3>
+    <div class="venue">Brassard et al.; Montanaro, <i>Proc. R. Soc. A</i> 471:20150301 (2015) — quantum speedup of Monte Carlo</div>
+    <p class="muted"><b>High level.</b> You have a biased coin and want its bias <span class="mi">p</span>
+    (read: “the average payoff of this option”). Classically you flip it <span class="mi">N</span> times
+    and count — but sampling error shrinks slowly, like <b>1/√N</b>, so reaching error <span class="mi">ε</span>
+    costs <b>~1/ε²</b> flips (one more digit = 100× the work). QAE instead <b>encodes the bias as a
+    rotation angle</b> and reads that angle by quantum interference — like measuring a spinning needle
+    instead of tallying flips. Error <span class="mi">ε</span> now costs <b>~1/ε</b> operations:
+    quadratically fewer (one more digit = 10×, not 100×).</p>
     <div class="eq">
-      <span class="c">// belief state — a unit vector in a Hilbert space ℋ</span><br>
-      |ψ⟩ ∈ ℋ,&nbsp;&nbsp; ⟨ψ|ψ⟩ = 1<br><br>
-      <span class="c">// an answer = a subspace with projector P (P² = P = P†). Born rule:</span><br>
-      Pr(answer) = ‖ P|ψ⟩ ‖² = ⟨ψ| P |ψ⟩<br><br>
-      <span class="c">// ask A then B (with collapse) — sequential measurement</span><br>
-      Pr(A=a, then B=b) = ‖ P<sub>b</sub><sup>B</sup> · P<sub>a</sub><sup>A</sup> |ψ⟩ ‖²<br><br>
-      <span class="c">// classical iff the projectors commute; otherwise ORDER MATTERS</span><br>
-      [P<sup>A</sup>, P<sup>B</sup>] = P<sup>A</sup>P<sup>B</sup> − P<sup>B</sup>P<sup>A</sup> <b>= 0</b> ⇒ joint distribution exists (classical)<br>
-      [P<sup>A</sup>, P<sup>B</sup>] <b>≠ 0</b> ⇒ no joint, order effects, interference<br><br>
-      <span class="c">// interference: two amplitudes for one outcome don't just add as probabilities</span><br>
-      Pr = |a₁ + a₂|² = |a₁|² + |a₂|² <b>+ 2·Re(a₁* a₂)</b>&nbsp;&nbsp;<span class="c">← no classical analogue</span><br><br>
-      <span class="c">// deliberation = unitary evolution under a cognitive Hamiltonian H</span><br>
-      |ψ(t)⟩ = e<sup>−iHt</sup> |ψ(0)⟩
+      <span class="c">// 𝒜 prepares a flag qubit c whose P[c=1] IS the quantity you want</span><br>
+      𝒜|0⟩ = √(1−<span class="mi">a</span>)·|Ψ₀⟩|0⟩<sub>c</sub> &nbsp;+&nbsp; √<span class="mi">a</span>·|Ψ₁⟩|1⟩<sub>c</sub><br><br>
+      <span class="c">// here that amplitude a is exactly the (rescaled) expected payoff</span><br>
+      <span class="mi">a</span> = Pr[c=1] = (1/C<sub>max</sub>)·𝔼[ max(<span class="mi">f</span>−K, 0) ]<br><br>
+      <span class="c">// write a = sin²ϑ, then build the Grover operator (two reflections)</span><br>
+      Q = 𝒜·S₀·𝒜<sup>†</sup>·S<sub>χ</sub>&nbsp;&nbsp;<span class="c">⇒ rotation by 2ϑ, eigenvalues e<sup>±2iϑ</sup></span><br>
+      <span class="c">// the angle you want now lives in a PHASE → read it with phase estimation</span><br><br>
+      <span class="c">// t counting qubits + controlled Q, Q², Q⁴, …, Q^(2^(t−1)) + inverse QFT</span><br>
+      <span class="mi">ã</span> = sin²(πy / 2<sup>t</sup>),&nbsp;&nbsp; |<span class="mi">ã</span> − <span class="mi">a</span>| = O(2<sup>−t</sup>) = O(ε)<br><br>
+      <span class="c">// cost = Σ 2ʲ = 2ᵗ−1 = O(1/ε) calls &nbsp;vs&nbsp; classical Monte Carlo O(1/ε²)</span><br>
+      <b>quadratic speed-up: 1/ε² → 1/ε</b>
     </div>
-    <p class="muted" style="font-size:13px">Two questions are <b>compatible</b> (commute → classical) or
-    <b>incompatible</b> (non-commuting → quantum). Human attitude questions behave as incompatible — that's the whole game.</p>
+    <p class="muted" style="font-size:13px">This is the whole reason to use a quantum computer at all:
+    the same expectation, resolved with quadratically fewer operations.</p>
   </div>
 
-  <!-- Wang 2014 -->
+  <!-- QNDM -->
   <div class="paper">
-    <div class="tag2">The killer evidence · parameter-free</div>
-    <h3>The QQ-equality for question-order effects</h3>
-    <div class="venue">Wang, Solloway, Shiffrin &amp; Busemeyer, <i>PNAS</i> 111(26):9431 (2014)</div>
-    <p class="muted">Derives an identity the quantum model must satisfy <i>regardless of any parameter</i>,
-    then confirms it on real surveys. This is what separates a model from a metaphor.</p>
+    <div class="tag2">Primitive 2 · read without destroying</div>
+    <h3>QNDM — Quantum Non-Demolition Measurement</h3>
+    <div class="venue">Quantum non-demolition phase-kick / “detector ancilla” scheme</div>
+    <p class="muted"><b>High level.</b> Normally, measuring a quantum system <b>destroys</b> its superposition —
+    it collapses to one outcome. That’s fatal here: our state holds <b>all the price paths (or investor
+    intentions) at once</b>, and measuring it directly just collapses to <i>one random path</i> — which is
+    plain classical Monte Carlo again, advantage gone. A <b>non-demolition</b> measurement dodges this: bolt
+    on a cheap disposable <b>probe</b> qubit, let the quantity you care about <b>imprint onto the probe’s
+    phase</b>, and measure <i>the probe</i>. The system’s superposition stays perfectly intact.</p>
+    <div class="callout good" style="margin:14px 0"><b>Picture it:</b> you don’t open all the boxes to read
+    what’s inside (that destroys the arrangement). You wave one sensor over them at once — the needle
+    accumulates the <i>aggregate</i> signal, and the boxes stay closed.</div>
     <div class="eq">
-      <span class="c">// four sequential probabilities per question pair (y = yes, n = no)</span><br>
-      q = [ Pr(A<sub>y</sub>,B<sub>n</sub>) + Pr(A<sub>n</sub>,B<sub>y</sub>) ] − [ Pr(B<sub>y</sub>,A<sub>n</sub>) + Pr(B<sub>n</sub>,A<sub>y</sub>) ] <b>= 0</b><br>
-      <span class="c">// i.e. the chance of giving DIFFERENT answers is the same in both orders</span><br><br>
-      <span class="c">// why it must hold: law of reciprocity of transition probabilities</span><br>
-      |⟨a<sub>i</sub>|b<sub>j</sub>⟩|² = |⟨b<sub>j</sub>|a<sub>i</sub>⟩|²&nbsp;&nbsp;<span class="c">⇒ q = 0 for ANY state, ANY questions</span>
+      <span class="c">// detector ancilla starts in |+⟩</span><br>
+      |+⟩<sub>d</sub> = ( |0⟩ + |1⟩ ) / √2<br><br>
+      <span class="c">// a controlled phase kicks the payoff f(x) into the detector's PHASE</span><br>
+      <span class="c">// the path register |x⟩ is NEVER collapsed — this is "non-demolition"</span><br>
+      (1/√2) Σ<sub>x</sub> √p(x) |x⟩ ( |0⟩<sub>d</sub> + e<sup>&nbsp;iλ<span class="mi">f</span>(x)</sup> |1⟩<sub>d</sub> )<br><br>
+      <span class="c">// measure ONLY the detector in the X basis:</span><br>
+      Pr[0] = ½ ( 1 + Re <span class="mi">G</span>(λ) ),&nbsp;&nbsp; <span class="mi">G</span>(λ) = 𝔼[ e<sup>&nbsp;iλ(<span class="mi">f</span>−K)</sup> ]<br><br>
+      <span class="c">// G(λ) = characteristic function = a property of the WHOLE distribution</span><br>
+      <span class="c">// sweep λ, then Gil–Peláez Fourier-invert → 𝔼[ max(f−K, 0) ]</span>
     </div>
-    <div class="io">
-      <div class="b in"><h5>Domain input</h5><b>70 national surveys</b> (Gallup / Pew). Each has two
-        yes/no attitude questions asked in <b>counterbalanced order</b> (half see A first, half B first);
-        large n per survey → the eight sequential probabilities.</div>
-      <div class="b out"><h5>Output</h5>The measured <span class="mi">q</span> for each survey. Order effects
-        were <b>large &amp; significant</b>, yet <span class="mi">q</span> clustered at <b>≈ 0</b>
-        (no significant deviation) — the parameter-free prediction held across all 70.</div>
-    </div>
-    <div class="result"><b>Result:</b> a non-fitted quantum prediction confirmed on dozens of real datasets.
-    This is the slide that wins the “is it just philosophy?” argument.</div>
+    <p class="muted" style="font-size:13px">One qubit’s measurement statistics hand you a distribution-level
+    quantity, without ever projecting onto a single path.</p>
   </div>
 
-  <!-- Pothos-Busemeyer 2009 -->
-  <div class="paper">
-    <div class="tag2">The mechanism · interference</div>
-    <h3>Quantum explanation of “irrational” choice (disjunction effect)</h3>
-    <div class="venue">Pothos &amp; Busemeyer, <i>Proc. R. Soc. B</i> 276:2171 (2009)</div>
-    <p class="muted">People violate the “sure-thing principle”: they’d act if they knew they won, and act
-    if they knew they lost, but <i>freeze</i> when the outcome is unknown. Classically impossible.</p>
-    <div class="eq">
-      <span class="c">// classical law of total probability (what SHOULD hold)</span><br>
-      Pr(B) = Pr(A₁)·Pr(B|A₁) + Pr(A₂)·Pr(B|A₂)&nbsp;&nbsp;<span class="c">⇒ Pr(B) lies between the two</span><br><br>
-      <span class="c">// quantum: the unknown state is a SUPERPOSITION of the two known states</span><br>
-      Pr(B | unknown) = |ψ₁ + ψ₂|² = |ψ₁|² + |ψ₂|² <b>+ 2·Re(ψ₁*ψ₂)</b><br>
-      <span class="c">// destructive interference 2·Re(ψ₁*ψ₂) &lt; 0 pushes Pr BELOW both — the freeze</span><br><br>
-      <span class="c">// model: 4-D space (opponent × own action); evolve under</span><br>
-      H = H<sub>payoff</sub> + H<sub>cognitive</sub>,&nbsp;&nbsp; |ψ(t)⟩ = e<sup>−iHt</sup>|ψ₀⟩
-    </div>
+  <!-- how they fit together -->
+  <div class="card">
+    <h3>How the two fit together</h3>
+    <p class="muted">They answer different questions, and the three “routes” in the option-pricing paper are
+    just different ways of marrying them:</p>
     <div class="io">
-      <div class="b in"><h5>Domain input</h5>Behavioural choice rates from two-stage gambles &amp;
-        a Prisoner’s-Dilemma task under three conditions: <b>told-win, told-lose, unknown</b>.</div>
-      <div class="b out"><h5>Output</h5>Fitted unitary reproduces the observed unknown-condition rate via the
-        interference term. An equivalent <b>classical Markov model provably cannot</b> (it obeys the LoTP).</div>
+      <div class="b in"><h5>QNDM gives you</h5>How to <b>read information off the giant superposition without
+        destroying it</b> — the phase trick. Cheap: one ancilla, no value register.</div>
+      <div class="b out"><h5>QAE gives you</h5>How to <b>turn an expectation into an amplitude and estimate it
+        quadratically faster</b> — the 1/ε² → 1/ε speed-up engine.</div>
     </div>
-    <div class="result"><b>Result:</b> quantum &gt; classical on a textbook rationality violation — the core “quantum beats classical” claim.</div>
-  </div>
-
-  <!-- Yukalov-Sornette -->
-  <div class="paper">
-    <div class="tag2">The finance bridge</div>
-    <h3>Quantum Decision Theory for risky prospects</h3>
-    <div class="venue">Yukalov &amp; Sornette, <i>Adv. Complex Syst.</i> 13:659 (2010); <i>Theory and Decision</i> 70:283 (2011)</div>
-    <p class="muted">Applies the same machinery to <b>lotteries/prospects</b> — the objects of prospect theory
-    and behavioural finance. (Sornette is a famous crash-modelling econophysicist → our credible finance link.)</p>
-    <div class="eq">
-      <span class="c">// probability of choosing prospect π = rational "utility" part + interference "attraction" part</span><br>
-      Pr(π) = f(π) <b>+ q(π)</b><br>
-      Σ<sub>π</sub> f(π) = 1,&nbsp;&nbsp; Σ<sub>π</sub> q(π) = 0,&nbsp;&nbsp; −1 ≤ q(π) ≤ 1<br><br>
-      <span class="c">// the "quarter law": with no other info, the interference magnitude averages to 1/4</span><br>
-      ⟨ |q(π)| ⟩ ≈ <b>0.25</b>&nbsp;&nbsp;<span class="c">← a parameter-free prior for irrational pull</span>
-    </div>
-    <div class="io">
-      <div class="b in"><h5>Domain input</h5>Choice frequencies from risk/uncertainty experiments —
-        Allais &amp; Ellsberg paradoxes, conjunction &amp; disjunction effects, lottery pairs.</div>
-      <div class="b out"><h5>Output</h5>Predicted choice probabilities including the non-classical reversals;
-        the <b>quarter law</b> estimates the interference size with <b>no fitting</b>.</div>
-    </div>
-    <div class="result"><b>Use it for:</b> framing the investor decision as a “prospect”, and a defensible, finance-grounded citation.</div>
-  </div>
-
-  <!-- Widdows 2023 -->
-  <div class="paper">
-    <div class="tag2">Buildability proof · on qubits</div>
-    <h3>Quantum-circuit components for decision-making</h3>
-    <div class="venue">Widdows, Rani &amp; Pothos, <i>Entropy</i> 25(4):548 (2023)</div>
-    <p class="muted">Shows these cognitive models run as <b>actual qubit circuits</b> — gates and measurement,
-    on simulators or real hardware. This is why a weekend build is realistic.</p>
-    <div class="eq">
-      <span class="c">// one yes/no question = one qubit; a rotation sets the "yes" amplitude</span><br>
-      R<sub>y</sub>(θ) |0⟩ = cos(θ/2)|0⟩ + sin(θ/2)|1⟩<br><br>
-      <span class="c">// incompatible questions = non-commuting rotations ⇒ order effect</span><br>
-      R<sub>y</sub>(θ<sub>B</sub>) · R<sub>y</sub>... with tilted axes:&nbsp; U<sub>B</sub>U<sub>A</sub> ≠ U<sub>A</sub>U<sub>B</sub><br><br>
-      <span class="c">// disjunction / interference: superpose, add relative phase, measure</span><br>
-      H|0⟩ = (|0⟩+|1⟩)/√2&nbsp; → phase φ → measure
-    </div>
-    <div class="io">
-      <div class="b in"><h5>Domain input</h5>Cognitive-task parameters (rotation angles, phases) encoding a decision model.</div>
-      <div class="b out"><h5>Output</h5>Measurement statistics that match the cognitive predictions; runnable in Qiskit / PennyLane and on NISQ hardware.</div>
-    </div>
-  </div>
-
-  <!-- Our model tie-in -->
-  <div class="paper" style="border-color:rgba(124,92,255,.5)">
-    <div class="tag2" style="color:#c7b8ff">⟶ what our code actually implements</div>
-    <h3>Our single-qubit investor (in <code>/quantum_investor</code>)</h3>
-    <div class="venue">Direct, minimal instance of the formalism above — verified to satisfy QQ-equality for all parameters.</div>
-    <div class="eq">
-      <span class="c">// belief state, prepared by a PennyLane circuit R_y(2α)</span><br>
-      |ψ⟩ = cos α |0⟩ + sin α |1⟩<br><br>
-      <span class="c">// Question A measured in the computational (Z) basis; Question B in a TILTED basis</span><br>
-      |A=yes⟩ = |0⟩&nbsp;&nbsp;&nbsp; |B=yes⟩ = cos β |0⟩ + sin β |1⟩<br><br>
-      <span class="c">// the order effect on B's yes-rate (β = tilt = incompatibility)</span><br>
-      Δ = cos²(α−β) − [ cos²α·cos²β + sin²α·sin²β ]&nbsp;&nbsp;<span class="c">≠ 0 when β ≠ 0</span><br><br>
-      <span class="c">// and we verify numerically, for ALL α,β:</span><br>
-      q = sin²β − sin²β <b>= 0</b>&nbsp;&nbsp;<span class="c">← the QQ-equality, parameter-free ✓</span>
-    </div>
-    <div class="io">
-      <div class="b in"><h5>Input (domain)</h5>Eight sequential yes/no probabilities (both orders) from
-        humans — <b>currently illustrative; swap in real survey data</b>.</div>
-      <div class="b out"><h5>Output</h5>Fitted (α, β); quantum fits ~131× better than the classical baseline;
-        classical order effect = 0; QQ = 0. Headline figure auto-generated.</div>
+    <div class="steps" style="margin-top:14px">
+      <div class="step"><b>Fourier route.</b> QNDM alone — cheap on qubits, but you must sweep λ and Fourier-invert.</div>
+      <div class="step"><b>QAE-amplitude route.</b> Amplitude alone — one shot, no λ sweep, but spends extra qubits computing the payoff into a register.</div>
+      <div class="step"><b>QSVT route.</b> The ambitious fusion — keeps QNDM’s cheap phase trick <i>and</i> QAE’s single-shot estimate, via a spectral transform of the phase oracle.</div>
     </div>
   </div>
 
   <!-- THE DEMO -->
   <h2><span class="num">05</span>What we actually build &amp; show</h2>
-  <p class="lead">A quantum-circuit “investor” that reproduces a real behavioral-finance quirk a classical model
-  <b>can't</b> — then we scale it to a crowd to show herding/bubbles.</p>
+  <p class="lead">The motivation says the market is non-classical, so we stop fighting it and
+  <b>compute with it</b>: a <b>quantum option pricer</b> that loads every price path into a real
+  superposition and reads the fair price off it — beating classical Monte Carlo by a quadratic
+  factor, with <i>no</i> expensive distribution-loading oracle.</p>
 
   <div class="card">
     <h3>The on-stage story (5 beats)</h3>
     <div class="steps">
-      <div class="step"><b>The lament.</b> Newton's South Sea Bubble loss + his quote. The father of classical physics, wrecked by crowds.</div>
-      <div class="step"><b>Classical model fails.</b> A standard rational/Bayesian investor can't fit a real behavioral anomaly without contradicting itself.</div>
-      <div class="step"><b>Quantum model fits.</b> The <i>same</i> decision as a tiny qubit circuit — superposition, interference, measurement — reproduces the anomaly. Feynman's quote drops here.</div>
-      <div class="step"><b>Resolution.</b> Two quotes, side by side → one equation. “The madness of people is quantum.”</div>
-      <div class="step"><b>Finance payoff.</b> Scale to many investors → interference produces herding/bubbles. A “quantum sentiment” signal vs a classical one around a real bubble.</div>
+      <div class="step"><b>The lament.</b> Newton's South Sea Bubble loss + his quote. The father of classical physics, wrecked by a market he couldn't price.</div>
+      <div class="step"><b>The market is a superposition.</b> A price path is up/down at each step — so the whole future is a superposition of <span class="mi">2<sup>M</sup></span> paths. We load it <b>exactly &amp; for free</b>: one R<sub>y</sub> rotation per step (a product distribution, no loading oracle).</div>
+      <div class="step"><b>Read the price without collapsing it.</b> QNDM kicks the payoff into a single ancilla's phase; QAE turns the expected payoff into an amplitude. Feynman's quote drops here — we measure the whole distribution, never one path.</div>
+      <div class="step"><b>Quadratic speed-up.</b> 1/ε² → 1/ε versus Monte Carlo, and we skip the loading oracle that dominates prior quantum pricers (Stamatopoulos 2020).</div>
+      <div class="step"><b>Finance payoff.</b> Prices European <i>and</i> path-dependent <b>Asian</b> options, with time-dependent volatility/rates handled natively — exactly the hard, high-value cases OP cares about.</div>
     </div>
   </div>
 
   <div class="card">
-    <h3>The comparison plot that wins it (mock)</h3>
-    <p class="muted">Our headline visual: the gap between what people actually do and what each model predicts.
-    Classical can't close it; quantum can.</p>
-    <div class="bar-row"><div class="lbl">Humans (data)</div><div class="bar"><span style="width:78%;background:#fff"></span></div><div style="width:42px">78%</div></div>
-    <div class="bar-row"><div class="lbl">Classical model</div><div class="bar"><span style="width:50%;background:var(--bad)"></span></div><div style="width:42px">50%</div></div>
-    <div class="bar-row"><div class="lbl">Quantum model</div><div class="bar"><span style="width:76%;background:var(--good)"></span></div><div style="width:42px">76%</div></div>
-    <div class="legend"><span><span class="dot" style="background:#fff"></span>What people really choose</span>
-      <span><span class="dot" style="background:var(--bad)"></span>Classical prediction (misses)</span>
-      <span><span class="dot" style="background:var(--good)"></span>Quantum prediction (matches)</span></div>
-    <p class="muted" style="font-size:13px;margin-top:10px">Illustrative — exact numbers come from the dataset/circuit we fit.</p>
+    <h3>The comparison that wins it (mock)</h3>
+    <p class="muted">Headline visual: error vs. work. Classical Monte Carlo needs <span class="mi">~1/ε²</span>
+    samples; our quantum routes need <span class="mi">~1/ε</span> queries — the curves separate as you demand
+    more accuracy. Second panel: qubits &amp; state-prep cost vs. the oracle-QAE baseline.</p>
+    <div class="bar-row"><div class="lbl">Classical MC</div><div class="bar"><span style="width:92%;background:var(--bad)"></span></div><div style="width:64px">O(1/ε²)</div></div>
+    <div class="bar-row"><div class="lbl">Oracle QAE</div><div class="bar"><span style="width:48%;background:var(--warn)"></span></div><div style="width:64px">O(1/ε) + costly loading</div></div>
+    <div class="bar-row"><div class="lbl">Ours (QNDM+QAE)</div><div class="bar"><span style="width:46%;background:var(--good)"></span></div><div style="width:64px">O(1/ε), free loading</div></div>
+    <div class="legend"><span><span class="dot" style="background:var(--bad)"></span>classical — slow convergence</span>
+      <span><span class="dot" style="background:var(--warn)"></span>quantum but loading-bound</span>
+      <span><span class="dot" style="background:var(--good)"></span>quantum + exact O(M) loading</span></div>
+    <p class="muted" style="font-size:13px;margin-top:10px">Illustrative — exact numbers come from the simulated pricer (small M) we benchmark against a Black–Scholes / MC reference.</p>
   </div>
 
   <div class="grid g2">
     <div class="card">
       <h3>Tech (small &amp; feasible)</h3>
       <ul class="clean">
-        <li><b>1–3 qubits.</b> Belief state on a qubit; two “questions” = non-commuting rotations; measure → order-dependence.</li>
-        <li><b>Finance framing:</b> the two questions = an investment choice under framing/uncertainty (a two-stage gamble).</li>
-        <li><b>Classical baseline</b> = a Bayesian/Markov model that demonstrably can't match the data.</li>
-        <li><b>Stretch:</b> N coupled investor qubits → interference → bubble; quantum vs classical sentiment over a historical bubble.</li>
+        <li><b>~M+1 qubits</b> for M time steps: M path qubits + 1 detector ancilla (+ a small work register for the QAE route).</li>
+        <li><b>Step 0 classical:</b> binomial tree (Cox–Ross–Rubinstein) → risk-neutral up-probabilities <span class="mi">q<sub>i</sub></span> → rotation angles <span class="mi">θ<sub>i</sub>=2·arcsin√q<sub>i</sub></span>.</li>
+        <li><b>Demo route:</b> QNDM + Fourier (cheapest qubits) for a European call at small M, then the Asian payoff to show path-dependence.</li>
+        <li><b>Classical baseline</b> = Monte-Carlo pricer + closed-form Black–Scholes, to show the same price at quadratically more samples.</li>
+        <li><b>Stretch:</b> the single-run QAE route and the QSVT fusion (§04); time-dependent σ(t), r(t).</li>
         <li><b>Stack:</b> PennyLane or Qiskit, statevector simulator, Python plots. No real quantum hardware needed.</li>
       </ul>
     </div>
     <div class="card">
       <h3>Why it scores on all four axes (25% each)</h3>
       <div class="scoregrid">
-        <div class="score"><div class="pct">Novelty 25%</div>Newton+Feynman+quantum cognition in finance — nobody else will have this.</div>
-        <div class="score"><div class="pct">Formulation 25%</div>“Classical probability can't model investor irrationality; quantum can” — testable.</div>
-        <div class="score"><div class="pct">Depth 25%</div>Real circuits + falsifiable classical-vs-quantum comparison, grounded in PNAS/RSPB.</div>
-        <div class="score"><div class="pct">Business 25%</div>Herding, bank-run panic, framing in product/pension choices — OP's core.</div>
+        <div class="score"><div class="pct">Novelty 25%</div>Newton+Feynman framing → a QNDM phase-encoded pricer with free, exact path loading. Distinct from textbook oracle-QAE.</div>
+        <div class="score"><div class="pct">Formulation 25%</div>“Price = discounted 𝔼[max(f−K,0)] over a path superposition” — crisp, with a falsifiable speed-up claim.</div>
+        <div class="score"><div class="pct">Depth 25%</div>Three routes (Fourier / QAE / QSVT), a full complexity table, honest limits — grounded in Stamatopoulos &amp; Montanaro.</div>
+        <div class="score"><div class="pct">Business 25%</div>Derivative pricing is OP's daily bread; Asian + time-dependent params are the genuinely hard, high-value cases.</div>
       </div>
     </div>
   </div>
 
+  <div class="callout"><b>What exists vs. what we build.</b> The cognition demo in <code>/quantum_investor</code>
+  (quantum beats classical on a behavioural effect) is our <i>motivation</i> proof and already runs. The
+  option pricer is the technical contribution: the math is fully worked out (<code>paper/main_V2.tex</code>); the
+  pricing code is the build target. Be honest on stage about which is which.</div>
+
   <!-- 24 HOUR PLAN -->
   <h2><span class="num">06</span>The 24-hour plan → submit tomorrow 10:00 AM</h2>
   <p class="lead">Team of 4: <span class="tag t-phy">PHY</span> two physicists (circuits &amp; theory) ·
-  <span class="tag t-cs">CS</span> two coders (data, baseline, visuals, deck). Times assume a ~10:00 AM start today —
-  <b>slide every block to match your real start time</b>. The golden rule: a working <i>core</i> demo by tonight, polish after sleep.</p>
+  <span class="tag t-cs">CS</span> two coders (pricer code, classical baseline, visuals, deck). Times assume a ~10:00 AM start today —
+  <b>slide every block to match your real start time</b>. The golden rule: a working <i>core</i> pricer by tonight, polish after sleep.</p>
 
-  <div class="callout good"><b>Definition of “done” by 10:00:</b> one slide showing humans break a rule, the classical
-  model can't fit it, the quantum circuit does — plus a 3-minute story. Everything else is bonus.</div>
+  <div class="callout good"><b>Definition of “done” by 10:00:</b> one slide showing our quantum pricer recovers a
+  known option price (matches Black–Scholes / Monte Carlo) at a <b>quadratic</b> reduction in queries, framed by the
+  Newton→Feynman “the market is a superposition” story. Everything else is bonus.</div>
 
   <div class="phase">
     <div class="time">Hr 0–2<small>~10:00–12:00</small></div>
     <div class="body"><h4>Lock scope &amp; set up — everyone in one room</h4>
-      <p class="muted">Agree the <b>one anomaly</b> we reproduce (recommended: a question-<b>order effect</b> or the
-      <b>disjunction effect</b>). Pick the dataset/framing scenario. Set up the shared repo + Python env
-      (PennyLane/Qiskit) on all machines. Write the one-sentence pitch on a whiteboard and don't change it.</p>
+      <p class="muted">Fix the <b>demo instrument</b>: a European call at small M (recommended M=3), priced by the
+      <b>QNDM + Fourier</b> route, benchmarked against Black–Scholes + Monte Carlo. Agree the parameters
+      (<span class="mi">S₀,K,T,r,σ</span>). Set up the shared repo + Python env (PennyLane/Qiskit). Write the one-sentence
+      pitch on a whiteboard and don't change it.</p>
       <div class="who-tags"><span class="tag t-all">ALL</span></div>
-      <div class="chk">✔ Checkpoint: env runs a 1-qubit circuit; scope + pitch frozen.</div>
+      <div class="chk">✔ Checkpoint: env runs a small circuit; scope + pitch + parameters frozen.</div>
     </div>
   </div>
 
@@ -441,32 +385,33 @@
     <div class="time">Hr 2–7<small>~12:00–17:00</small></div>
     <div class="body"><h4>Parallel build — the core</h4>
       <ul class="clean">
-        <li><b>PHY1 + PHY2:</b> the quantum decision circuit — qubit belief state, two non-commuting “question” rotations,
-          interference, measurement. Get it to <b>reproduce the anomaly</b> (order-dependence / the QQ-equality).</li>
-        <li><b>CS1:</b> the classical baseline (Bayesian/Markov) + the data pipeline; show the baseline <b>fails</b>.</li>
+        <li><b>PHY1:</b> Step 0–1 — binomial tree → <span class="mi">q<sub>i</sub></span>, angles <span class="mi">θ<sub>i</sub></span>, and the R<sub>y</sub> path-loading circuit; verify the loaded state matches <span class="mi">p(x)</span>.</li>
+        <li><b>PHY2:</b> Steps 2–5a — detector ancilla, the phase kick <span class="mi">e<sup>iλ(f−K)</sup></span>, X/Y measurement of <span class="mi">G(λ)</span>, and the Gil–Peláez inversion.</li>
+        <li><b>CS1:</b> classical baseline — Monte-Carlo pricer + closed-form Black–Scholes; the convergence-vs-samples curve.</li>
         <li><b>CS2:</b> plotting + demo scaffold + start the slide deck skeleton (5 beats from section 05).</li>
       </ul>
       <div class="who-tags"><span class="tag t-phy">PHY1</span><span class="tag t-phy">PHY2</span><span class="tag t-cs">CS1</span><span class="tag t-cs">CS2</span></div>
-      <div class="chk">✔ Checkpoint (Hr 7): circuit shows the effect; baseline misses it — separately.</div>
+      <div class="chk">✔ Checkpoint (Hr 7): pricer returns a number; baseline returns the same number — separately.</div>
     </div>
   </div>
 
   <div class="phase">
     <div class="time">Hr 7–10<small>~17:00–20:00</small></div>
-    <div class="body"><h4>Integrate the single-investor demo (THE must-have)</h4>
-      <p class="muted">Wire it together: same scenario → classical predicts X (wrong), quantum predicts Y (matches humans).
-      Produce <b>the headline comparison plot</b> (section 05). Break for dinner once it runs end-to-end.</p>
+    <div class="body"><h4>Integrate the pricer end-to-end (THE must-have)</h4>
+      <p class="muted">Wire it together: same option → quantum pricer and Black–Scholes agree on the price, and the
+      error-vs-queries plot shows quantum (~1/ε) pulling away from Monte Carlo (~1/ε²). Produce <b>the headline
+      comparison plot</b> (section 05). Break for dinner once it runs end-to-end.</p>
       <div class="who-tags"><span class="tag t-all">ALL</span></div>
-      <div class="chk">✔ MILESTONE: core demo works end-to-end. If we stop now, we can still submit. 🎯</div>
+      <div class="chk">✔ MILESTONE: pricer matches the reference price end-to-end. If we stop now, we can still submit. 🎯</div>
     </div>
   </div>
 
   <div class="phase">
     <div class="time">Hr 10–15<small>~20:00–01:00</small></div>
-    <div class="body"><h4>Stretch — the crowd / bubble (nice-to-have)</h4>
+    <div class="body"><h4>Stretch — Asian option &amp; the QAE route (nice-to-have)</h4>
       <ul class="clean">
-        <li><b>PHY:</b> N coupled investor qubits; sweep the coupling → constructive interference forms a “bubble”.</li>
-        <li><b>CS:</b> overlay a quantum vs classical “sentiment” signal on a real historical bubble window (e.g. dot-com / 2008 / a crypto run via free price data).</li>
+        <li><b>PHY:</b> swap the terminal price <span class="mi">S<sub>T</sub></span> for the path average <span class="mi">S̄</span> → price a path-dependent <b>Asian</b> option (the case classical methods find hard); optionally the single-run QAE / QSVT route.</li>
+        <li><b>CS:</b> add time-dependent <span class="mi">σ(t), r(t)</span> (handled natively) and a qubit-count / state-prep comparison vs. oracle-QAE.</li>
       </ul>
       <p class="muted">Hard stop at Hr 15: if the stretch isn't convincing, <b>cut it</b> and protect the core. Don't let the bonus sink the must-have.</p>
       <div class="who-tags"><span class="tag t-phy">PHY1</span><span class="tag t-phy">PHY2</span><span class="tag t-cs">CS1</span><span class="tag t-cs">CS2</span></div>
@@ -509,29 +454,29 @@
     <div class="box must">
       <h3 style="color:var(--good)">Must-have (protect at all costs)</h3>
       <ul class="clean">
-        <li>One behavioral anomaly reproduced by the quantum circuit.</li>
-        <li>Classical baseline that visibly fails on the same data.</li>
-        <li>The headline comparison plot.</li>
-        <li>A tight 3-minute Newton→Feynman→resolution story + guardrail slide.</li>
+        <li>Quantum pricer (QNDM+Fourier, small M) that recovers a known European-call price.</li>
+        <li>Classical baseline (Black–Scholes + Monte Carlo) agreeing on the price.</li>
+        <li>The headline error-vs-queries plot showing the quadratic separation.</li>
+        <li>A tight 3-minute Newton→Feynman→“the market is a superposition”→pricer story.</li>
       </ul>
     </div>
     <div class="box nice">
       <h3 style="color:#c7b8ff">Nice-to-have (only if core is safe)</h3>
       <ul class="clean">
-        <li>Multi-investor herding / bubble from interference.</li>
-        <li>Quantum vs classical sentiment over a real historical bubble.</li>
-        <li>Interactive widget / animation in the demo.</li>
-        <li>A clean GitHub README with the story.</li>
+        <li>Path-dependent <b>Asian</b> option from the same circuit.</li>
+        <li>Single-run QAE route and/or the QSVT fusion.</li>
+        <li>Time-dependent σ(t), r(t); qubit-count comparison vs. oracle-QAE.</li>
+        <li>The cognition mini-demo (<code>/quantum_investor</code>) as the motivation opener; clean README.</li>
       </ul>
     </div>
   </div>
 
-  <div class="callout"><b>Biggest risks &amp; the fix.</b> (1) <b>Over-scoping</b> — the crowd/bubble part eats the night; mitigate with the Hr-15 freeze. (2) <b>“It's just philosophy”</b> — mitigate by leading with the falsifiable classical-vs-quantum plot and citing PNAS/RSPB. (3) <b>Live demo fails</b> — mitigate with the recorded fallback video.</div>
+  <div class="callout"><b>Biggest risks &amp; the fix.</b> (1) <b>Over-scoping</b> — Asian / QAE / QSVT stretch eats the night; mitigate with the Hr-15 freeze and protect the European-call core. (2) <b>“Where's the quantum advantage?”</b> — mitigate by leading with the error-vs-queries plot (1/ε vs 1/ε²) and the free, exact O(M) state preparation vs. oracle-QAE. (3) <b>Live demo fails</b> — mitigate with the recorded fallback video.</div>
 
   <footer>
-    Built from the project context folder · concept: “The Madness of People Is Quantum” ·
-    grounded in quantum cognition / quantum decision theory (Pothos &amp; Busemeyer; Yukalov &amp; Sornette; Widdows &amp; Pothos).<br>
-    Quantum-<i>like</i> math, not quantum neurons. Good luck — go win the room. 🟣🟢
+    Built from the project context folder · motivation: “The Madness of People Is Quantum” (the market is
+    non-classical) · technical core: quantum option pricing via QNDM phase encoding + QAE/QSVT (Stamatopoulos 2020; Montanaro 2015; Cox–Ross–Rubinstein).<br>
+    Quantum-<i>like</i> markets, real quantum algorithms. Good luck — go win the room. 🟣🟢
   </footer>
 </div>
 

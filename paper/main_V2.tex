@@ -1,0 +1,556 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{physics}
+\usepackage{amsmath}
+\usepackage{comment}
+\usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{tocbibind} % Per includere l'appendice nell'indice automaticamente
+\usepackage[backend=biber]{biblatex}
+\addbibresource{bibliography.bib} % File bib
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{quantikz}
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.1,0.1,0.6}
+\definecolor{backcolor}{rgb}{0.95,0.95,0.92}
+
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolor},
+    commentstyle=\color{codegray},
+    keywordstyle=\color{codeblue},
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{red},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+
+% Definizione dei nuovi comandi
+\newcommand{\Id}{\mathbb{I}}
+\newcommand{\deltat}{\Delta t}
+\def\myvdots{\ \vdots\ }
+
+\newtheorem{remark}{Observation}
+
+
+% Main text
+
+\title{Quantum finance --- Complete procedure for option pricing}
+\author{Dario Melegari}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Goal and notation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This document presents, in a self-contained way, the \textbf{complete procedure to estimate the price of an option} with the Quantum Non-Demolition Measurement (QNDM) approach. The procedure is written so that it covers \emph{both}:
+\begin{itemize}
+    \item the \textbf{European} option ($M=1$ time step, payoff depending only on the terminal price $S_T$);
+    \item the \textbf{Asian} option ($M>1$ time steps, payoff depending on the arithmetic average $\bar{S}$ along the path).
+\end{itemize}
+The two cases differ \emph{only} in the scalar quantity whose expectation we estimate; everything else (circuit, measurement, post-processing) is identical. This unification is highlighted explicitly at each step.
+
+\paragraph{Notation.}
+\begin{center}
+\begin{tabular}{ll}
+\hline
+$S_0$ & spot price of the underlying at $t=0$ \\
+$K$ & strike price \\
+$T$ & maturity \\
+$r$ & risk-free interest rate (possibly time-dependent $r_i$) \\
+$\sigma$ & volatility (possibly time-dependent $\sigma_i$) \\
+$M$ & number of time steps, $\deltat = T/M$ \\
+$u_i,\,d_i$ & up / down factors at step $i$ \\
+$q_i$ & risk-neutral probability of an up move at step $i$ \\
+$x=(x_1,\dots,x_M)\in\{0,1\}^M$ & a price path ($x_i=1$ up, $x_i=0$ down) \\
+$f(x)$ & quantity entering the payoff (see below) \\
+$\varepsilon$ & target accuracy on the final price \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{The quantity $f(x)$.} The whole procedure estimates $\mathbb{E}_{\mathbb{Q}}\!\big[\max(f(x)-K,0)\big]$ under the risk-neutral measure $\mathbb{Q}$, where
+\begin{equation}\label{eq_fx}
+f(x) =
+\begin{cases}
+S_T(x) = S_0\displaystyle\prod_{i=1}^{M} \big(d_i + (u_i-d_i)\,x_i\big), & \textbf{European} \ (\text{use only the terminal price}),\\[10pt]
+\bar{S}(x) = \dfrac{1}{M}\displaystyle\sum_{t=1}^{M} S_t(x), \quad S_t(x)=S_0\!\prod_{i=1}^{t}\!\big(d_i+(u_i-d_i)x_i\big), & \textbf{Asian} \ (\text{arithmetic mean}).
+\end{cases}
+\end{equation}
+The option price at $t=0$ is then the discounted expected payoff
+\begin{equation}\label{eq_price}
+\boxed{\;C = e^{-rT}\,\mathbb{E}_{\mathbb{Q}}\!\big[\max(f(x)-K,\,0)\big]\;}
+\end{equation}
+(for a call; for a put replace $\max(f-K,0)$ with $\max(K-f,0)$).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 0 --- Classical model: the (time-dependent) binomial tree}\label{sec_step0}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We discretise the risk-neutral Geometric Brownian Motion $dS_t = r S_t\,dt + \sigma S_t\,dW_t$ on a binomial lattice (Cox--Ross--Rubinstein, CRR) with $M$ steps. At each step the price moves up by $u_i$ or down by $d_i$:
+\begin{equation}
+S_{i+1} = S_i\, u_i \quad (\text{up}), \qquad S_{i+1} = S_i\, d_i \quad (\text{down}).
+\end{equation}
+Following the Jarrow--Rudd / CRR parametrisation,
+\begin{equation}
+u_i = \exp\!\Big[\big(r_i-\tfrac12\sigma_i^2\big)\deltat + \sigma_i\sqrt{\deltat}\Big],
+\qquad
+d_i = \exp\!\Big[\big(r_i-\tfrac12\sigma_i^2\big)\deltat - \sigma_i\sqrt{\deltat}\Big].
+\end{equation}
+The \textbf{risk-neutral probability} of an up move is fixed by requiring the discounted price to be a martingale:
+\begin{equation}\label{eq_q}
+q_i = \frac{e^{r_i \deltat} - d_i}{u_i - d_i}, \qquad 0 < q_i < 1.
+\end{equation}
+For time-independent parameters $u_i=u$, $d_i=d$, $q_i=q$ for all $i$; the procedure below works unchanged in either case. As $M\to\infty$ the tree converges to the Black--Scholes dynamics.
+
+\begin{remark}
+A path $x\in\{0,1\}^M$ has risk-neutral probability $p(x)=\prod_{i=1}^M q_i^{\,x_i}(1-q_i)^{1-x_i}$. There are $2^M$ paths: classically one would Monte-Carlo--sample them; here we load \emph{all} of them in superposition and read off the expected payoff with a quadratic speed-up in $\varepsilon$.
+\end{remark}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Overview of the quantum procedure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The full pipeline is:
+\begin{enumerate}
+    \item[\textbf{1.}] \textbf{Path loading} --- one qubit per time step, an $R_Y$ rotation per qubit prepares $\sum_x\sqrt{p(x)}\ket{x}$.
+    \item[\textbf{2.}] \textbf{Detector init} --- one ancilla qubit in $\ket{+}$.
+    \item[\textbf{3.}] \textbf{Phase encoding} --- diagonal operators kick the quantity $f(x)$ of Eq.~\eqref{eq_fx} into the ancilla phase $e^{i\lambda f(x)}$.
+    \item[\textbf{4.}] \textbf{Strike} --- absorb $K$ into the phase: $e^{i\lambda(f(x)-K)}$.
+    \item[\textbf{5a.}] \textbf{Fourier route} --- measure the ancilla to reconstruct the characteristic function $G(\lambda)=\mathbb{E}[e^{i\lambda(f-K)}]$, then invert classically (Gil--Pelaez) to get $\mathbb{E}[\max(f-K,0)]$.
+    \item[\textbf{5b.}] \textbf{QAE route} --- alternatively, encode the payoff into an amplitude and run Quantum Amplitude Estimation for a quadratic speed-up.
+    \item[\textbf{6.}] \textbf{Discount} --- multiply by $e^{-rT}$ to obtain the price $C$ of Eq.~\eqref{eq_price}.
+\end{enumerate}
+The only $\textbf{European}$ vs.\ $\textbf{Asian}$ difference lives in Step~3, through the choice of $f(x)$.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 1 --- Loading the path superposition}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Allocate $M$ \emph{path qubits} $q_1,\dots,q_M$, each in $\ket{0}$ (for a European option simply take $M=1$). On qubit $q_i$ apply the single-qubit rotation
+\begin{equation}
+R_Y(\theta_i) = e^{-i\frac{\theta_i}{2}\hat Y}=
+\begin{pmatrix}
+\cos\frac{\theta_i}{2} & -\sin\frac{\theta_i}{2}\\[4pt]
+\sin\frac{\theta_i}{2} & \cos\frac{\theta_i}{2}
+\end{pmatrix},
+\qquad
+\theta_i = 2\arcsin\!\big(\sqrt{q_i}\big),
+\end{equation}
+with $q_i$ the risk-neutral up-probability of Eq.~\eqref{eq_q}. Each qubit becomes $\sqrt{1-q_i}\ket{0}+\sqrt{q_i}\ket{1}$, and the full register is the risk-neutral superposition of all $2^M$ paths,
+\begin{equation}\label{eq_psi0}
+\ket{\psi_0} = \bigotimes_{i=1}^{M}\Big(\sqrt{1-q_i}\,\ket{0} + \sqrt{q_i}\,\ket{1}\Big)
+= \sum_{x\in\{0,1\}^M}\sqrt{p(x)}\,\ket{x}.
+\end{equation}
+Cost: $M$ single-qubit gates. Note that time-dependence is for free --- each $\theta_i$ can use its own $u_i,d_i,r_i,\sigma_i$.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 2 --- Initialising the QNDM detector}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Add one ancilla qubit $d$ (the \emph{detector}) and put it in $\ket{+}=\tfrac{1}{\sqrt2}(\ket{0}+\ket{1})$ with a Hadamard $H$. The state is
+\begin{equation}
+\ket{\psi_1} = \ket{\psi_0}\otimes \frac{1}{\sqrt2}\big(\ket{0}_d + \ket{1}_d\big).
+\end{equation}
+The detector is the register onto which we will kick the financial quantity $f(x)$ as a relative phase between $\ket{0}_d$ and $\ket{1}_d$. This is the essence of the \emph{non-demolition} idea: the path register $\ket{x}$ is never collapsed; only a controlled phase is written on the ancilla.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 3 --- Encoding $f(x)$ into the detector phase}\label{sec_step3}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We now write the payoff-relevant quantity $f(x)$ of Eq.~\eqref{eq_fx} into the phase of the detector, controlled by its state. The target is
+\begin{equation}\label{eq_target_phase}
+\ket{\psi_2} = \frac{1}{\sqrt2}\sum_{x}\sqrt{p(x)}\,\ket{x}\Big(\ket{0}_d + e^{\,i\lambda f(x)}\ket{1}_d\Big),
+\end{equation}
+for a chosen coupling $\lambda$. We apply a sequence of \textbf{diagonal operators} $U_1,\dots,U_M$ acting on the path qubits and the detector,
+\begin{equation}\label{eq_Ut}
+U_t = \sum_{x\in\{0,1\}^M}\ket{x}\!\bra{x}\otimes\Big(\ket{0}\!\bra{0}_d + e^{\,i\lambda\,\phi_t(x)}\,\ket{1}\!\bra{1}_d\Big),
+\end{equation}
+where the per-step contribution $\phi_t(x)$ is chosen so that the accumulated phase equals $f(x)$:
+\begin{equation}\label{eq_phit}
+\textbf{European:}\quad \phi_t(x) = \begin{cases}0,& t<M\\ S_T(x),& t=M\end{cases}
+\qquad\qquad
+\textbf{Asian:}\quad \phi_t(x) = \frac{S_t(x)}{M}.
+\end{equation}
+After all $M$ operators, the detector phase is $\exp\!\big[i\lambda\sum_t\phi_t(x)\big]=e^{i\lambda f(x)}$, exactly Eq.~\eqref{eq_target_phase}.
+
+\paragraph{How to realise $U_t$ in gates.}
+Since $S_t(x)=S_0\prod_{j=1}^{t}(d_j+(u_j-d_j)x_j)$ depends only on the first $t$ bits of $x$, each $U_t$ is implemented by:
+\begin{enumerate}
+    \item a reversible arithmetic sub-circuit that computes $S_t(x)$ (equivalently $\phi_t(x)$) into a temporary work register, using controlled multiplications/additions of depth polynomial in $t$;
+    \item a controlled phase rotation (a $R_Z$/controlled-phase on the detector, controlled by the work register and by $\ket{1}_d$) that writes $e^{i\lambda\phi_t(x)}$;
+    \item the \emph{uncomputation} of the work register (running the arithmetic in reverse) so that it returns to $\ket{0}$ and can be reused for the next step.
+\end{enumerate}
+
+\begin{remark}[Recombining shortcut]
+On a recombining tree the value $S_t$ depends only on the number of up moves so far, i.e.\ the Hamming weight $w(x_1\dots x_t)$. One can therefore store $w$ in a small $\lceil\log_2(M{+}1)\rceil$-qubit register (the Hamming-weight trick) and apply a phase $e^{i\lambda\,S_0 u^{w}d^{t-w}/M}$ conditioned on it, avoiding full multipliers. This keeps the work register logarithmic in $M$.
+\end{remark}
+
+\paragraph{Worked $M=2$ illustration (Asian).} Acting on path $+$ detector only, the diagonal steps produce
+\begin{align}
+\frac{1}{\sqrt2}\Big[\;
+& (1-q)\,e^{\pm i\lambda \bar S_{00}}\ket{00}\ket{\pm}_d
+ + \sqrt{q(1-q)}\,e^{\pm i\lambda \bar S_{01}}\ket{01}\ket{\pm}_d \notag\\
+&+ \sqrt{q(1-q)}\,e^{\pm i\lambda \bar S_{10}}\ket{10}\ket{\pm}_d
+ + q\,e^{\pm i\lambda \bar S_{11}}\ket{11}\ket{\pm}_d \;\Big],
+\end{align}
+where $\bar S_{x_1x_2}=\tfrac12\big(S_1(x)+S_2(x)\big)$ is the path average, e.g.\ $\bar S_{00}=\tfrac12 S_0(d+d^2)$, $\bar S_{11}=\tfrac12 S_0(u+u^2)$. (For the European case only $S_2=S_T$ enters, recovering $f=S_T$.)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 4 --- Absorbing the strike $K$}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Rather than building a separate comparator for $K$, we shift the phase by a constant. Apply a single $R_Z$ on the detector,
+\begin{equation}
+R_Z(-2\lambda K) =\begin{pmatrix}1 & 0\\ 0 & e^{-i\lambda K}\end{pmatrix}
+\quad\Longrightarrow\quad
+\ket{\psi_3} = \frac{1}{\sqrt2}\sum_x\sqrt{p(x)}\,\ket{x}\Big(\ket{0}_d + e^{\,i\lambda(f(x)-K)}\ket{1}_d\Big).
+\end{equation}
+The detector now carries the full \emph{moneyness} $f(x)-K$ in its phase, for both option types.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 5a --- Price extraction: characteristic-function (Fourier) route}\label{sec_fourier}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For each value of $\lambda$ in a chosen grid, run Steps~1--4 and measure \emph{only the detector}, in two bases:
+\begin{itemize}
+    \item \textbf{$X$ basis} (apply $H$ on $d$, then measure): $\ \Pr[0] = \tfrac12\big(1+\operatorname{Re}G(\lambda)\big)$;
+    \item \textbf{$Y$ basis} (apply $S^\dagger$ then $H$ on $d$, then measure): $\ \Pr[0] = \tfrac12\big(1+\operatorname{Im}G(\lambda)\big)$,
+\end{itemize}
+where
+\begin{equation}
+G(\lambda) = \mathbb{E}_{\mathbb{Q}}\!\big[e^{\,i\lambda(f-K)}\big] = \sum_x p(x)\,e^{i\lambda(f(x)-K)}
+\end{equation}
+is the \textbf{characteristic function} of the moneyness. Repeating over the $\lambda$-grid reconstructs $G(\lambda)$. The expected payoff follows from the Gil--Pelaez / Fourier inversion of the call transform,
+\begin{equation}
+\mathbb{E}\big[\max(f-K,0)\big] = \frac{1}{2\pi}\int_{-\infty}^{+\infty} \frac{G(\lambda)}{(i\lambda)^2}\,d\lambda,
+\end{equation}
+evaluated numerically by an FFT over the sampled $\lambda$. This route needs only the single detector qubit (no arithmetic for the payoff), at the cost of $O(1/\varepsilon)$ circuit repetitions per $\lambda$.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 5b --- Price extraction: amplitude estimation (QAE) route}\label{sec_qae}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\paragraph{The idea.} Quantum Amplitude Estimation (QAE) estimates an \emph{amplitude} $a=\Pr[\text{good}]$ with $O(1/\varepsilon)$ calls, a quadratic improvement over the $O(1/\varepsilon^2)$ shots of classical Monte Carlo. We want a \textbf{single} QAE run that returns the price directly, with \emph{no} $\lambda$ to sweep.
+
+\paragraph{Why no $\lambda$ here.} The coupling $\lambda$ of Steps~3--4 belongs to the \emph{phase} encoding: a relative phase $e^{i\lambda(f-K)}$ only reveals the \emph{characteristic function} $G(\lambda)=\mathbb{E}[e^{i\lambda(f-K)}]$ at one point, so recovering $\mathbb{E}[\max(f-K,0)]$ forces an integral over $\lambda$ (the Fourier inversion of Sec.~\ref{sec_fourier}, hence the sweep). To get the expected payoff in one shot we must instead store it in an \emph{amplitude}. We therefore \textbf{drop the QNDM phase} (Steps~2--4 and $\lambda$ play no role in this route) and build the payoff directly into an amplitude. After loading the paths (Step~1), the procedure is fully self-contained.
+
+\subsection{The preparation operator $\mathcal{A}$}
+
+Add a single \emph{target} qubit $c$ in $\ket{0}$ and a work register. We collect all the state-preparation work into one unitary $\mathcal{A}$ acting on the path register, the work register, and the target $c$:
+\begin{enumerate}
+    \item \textbf{Load paths} --- apply the $R_Y(\theta_i)$ of Step~1, giving $\sum_x\sqrt{p(x)}\ket{x}$.
+    \item \textbf{Compute the payoff} --- a reversible arithmetic block $\mathcal{F}$ computes $\Delta(x)=\max\!\big(f(x)-K,0\big)$ into the work register, with $f(x)=S_T(x)$ \textbf{(European)} or $f(x)=\bar S(x)$ \textbf{(Asian)}. The work register reuses the Hamming-weight ancillas of Sec.~\ref{sec_step3}.
+    \item \textbf{Payoff $\to$ amplitude} --- pick a known upper bound $C_{\max}\ge \max_x\Delta(x)$ and apply a controlled rotation on $c$,
+    \begin{equation}\label{eq_payoff_rot}
+    R_Y^{(c)}\!\Big(2\arcsin\!\sqrt{\Delta(x)/C_{\max}}\Big),
+    \end{equation}
+    realised as multi-controlled $R_Y$ gates conditioned on the bits of the work register holding $\Delta(x)$.
+    \item \textbf{Uncompute} --- run $\mathcal{F}^\dagger$ to reset the work register to $\ket{0}$, so it is disentangled from path and target.
+\end{enumerate}
+The output is
+\begin{equation}\label{eq_A_state}
+\mathcal{A}\ket{0} \;=\; \sum_x\sqrt{p(x)}\,\ket{x}\Big(\sqrt{1-\tfrac{\Delta(x)}{C_{\max}}}\,\ket{0}_c + \sqrt{\tfrac{\Delta(x)}{C_{\max}}}\,\ket{1}_c\Big)
+\;=\; \sqrt{1-a}\,\ket{\Psi_0}\ket{0}_c + \sqrt{a}\,\ket{\Psi_1}\ket{1}_c ,
+\end{equation}
+where $\ket{\Psi_{0,1}}$ are normalised states of the remaining registers and the amplitude we want is exactly the (rescaled) expected payoff:
+\begin{equation}\label{eq_a_value}
+a \;=\; \Pr[c=1] \;=\; \frac{1}{C_{\max}}\sum_x p(x)\,\Delta(x) \;=\; \frac{1}{C_{\max}}\,\mathbb{E}_{\mathbb{Q}}\!\big[\max(f-K,0)\big].
+\end{equation}
+
+\begin{figure}[h]
+\centering
+\begin{quantikz}[column sep=0.30cm, row sep=0.30cm]
+\lstick[wires=3]{$\ket{0}^{\otimes M}$ \\ \scriptsize paths}
+ & \gate[3]{R_Y(\theta_i)} & \gate[4]{\mathcal{F}} & \qw                 & \gate[4]{\mathcal{F}^\dagger} & \qw \\
+ &                                     &                      & \qw                 &                               & \qw \\
+ &                                     &                      & \qw                 &                               & \qw \\
+\lstick{$\ket{0}^{\otimes \ell}$ \\ \scriptsize work}
+ & \qw                                 &                      & \ctrl{1}            &                               & \qw \\
+\lstick{$\ket{0}_c$ \\ \scriptsize target}
+ & \qw                                 & \qw                  & \gate{R_Y(2\arcsin\!\sqrt{\Delta/C_{\max}})} & \qw            & \qw
+\end{quantikz}
+\caption{Internal structure of the preparation operator $\mathcal{A}$ (Eq.~\eqref{eq_A_state}). The path qubits are loaded by $R_Y(\theta_i)$; the reversible block $\mathcal{F}$ computes $\Delta(x)=\max(f(x)-K,0)$ into the $\ell=O(\log M)$ work qubits; a controlled rotation writes $\sqrt{\Delta/C_{\max}}$ into the amplitude of the target $c$; finally $\mathcal{F}^\dagger$ uncomputes the work register. Choosing $f=S_T$ gives the European payoff, $f=\bar S$ the Asian one.}
+\label{fig_A_operator}
+\end{figure}
+
+\subsubsection{The Grover operator $Q$}
+
+Amplitude estimation determines $a$ by estimating the rotation angle of the Grover-type operator
+\begin{equation}\label{eq_grover}
+Q \;=\; \mathcal{A}\,S_0\,\mathcal{A}^\dagger\,S_{\chi},
+\qquad
+S_{\chi} = \Id - 2\,\Id\otimes\ket{1}\!\bra{1}_c,
+\qquad
+S_0 = \Id - 2\ket{0}\!\bra{0},
+\end{equation}
+i.e.\ $S_\chi$ flips the sign of the ``good'' subspace ($c=1$) and $S_0$ reflects about the initial state. Writing $a=\sin^2(\vartheta_a)$, the operator $Q$ acts as a rotation by $2\vartheta_a$ in the two-dimensional span of $\{\ket{\Psi_0}\ket{0}_c,\ \ket{\Psi_1}\ket{1}_c\}$, with eigenvalues $e^{\pm i 2\vartheta_a}$.
+
+\subsubsection{Phase estimation on $Q$}
+
+We add a \emph{counting} register of $t=O\!\big(\log\frac1\varepsilon\big)$ qubits and run standard quantum phase estimation on $Q$:
+\begin{enumerate}
+    \item put the counting register in uniform superposition with $H^{\otimes t}$;
+    \item apply the controlled powers $Q^{2^{0}},Q^{2^{1}},\dots,Q^{2^{t-1}}$, each controlled by one counting qubit;
+    \item apply the inverse Quantum Fourier Transform $\mathrm{QFT}^\dagger$ and measure the counting register, obtaining an integer $y\in\{0,\dots,2^t-1\}$.
+\end{enumerate}
+The estimate of the angle and hence of the amplitude is
+\begin{equation}\label{eq_qae_readout}
+\tilde\vartheta_a = \frac{\pi y}{2^t},
+\qquad
+\tilde a = \sin^2\!\big(\tilde\vartheta_a\big)
+\;\approx\; a,
+\qquad
+\text{with error } |\tilde a - a| = O\!\big(2^{-t}\big)=O(\varepsilon).
+\end{equation}
+
+\begin{figure}[h]
+\centering
+\begin{quantikz}[column sep=0.32cm, row sep=0.30cm]
+\lstick{$\ket{0}$}        & \gate{H} & \qw      & \qw      & \ \ldots\ & \ctrl{4}                 & \gate[4]{\mathrm{QFT}^{\dagger}} & \meter{} \\
+\lstick{$\ket{0}$}        & \gate{H} & \qw      & \ctrl{3} & \ \ldots\ & \qw                      &                                  & \meter{} \\
+\lstick{\vdots}           &          &          &          &           &                          &                                  & \\
+\lstick{$\ket{0}$}        & \gate{H} & \ctrl{1} & \qw      & \ \ldots\ & \qw                      &                                  & \meter{} \\
+\lstick{$\ket{0}_{\text{sys}}$}
+                          & \gate{\mathcal{A}} & \gate{Q^{2^{0}}} & \gate{Q^{2^{1}}} & \ \ldots\ & \gate{Q^{2^{t-1}}} & \qw & \qw
+\end{quantikz}
+\caption{Quantum Amplitude Estimation circuit for the price extraction. The bottom wire ``sys'' bundles the path, work and target registers and is prepared by $\mathcal{A}$ (Fig.~\ref{fig_A_operator}). The top $t$ counting qubits, after $H^{\otimes t}$, control the powers $Q^{2^{j}}$ of the Grover operator $Q=\mathcal{A}S_0\mathcal{A}^\dagger S_\chi$. The inverse QFT and the final measurement return $y$, from which $\tilde a=\sin^2(\pi y/2^t)$ estimates the rescaled expected payoff of Eq.~\eqref{eq_a_value}. The number of controlled-$Q$ applications scales as $\sum_j 2^j = 2^t-1 = O(1/\varepsilon)$, the source of the quadratic speed-up.}
+\label{fig_qae_circuit}
+\end{figure}
+
+\subsubsection{From $\tilde a$ to the option price}
+
+Undo the rescaling of Eq.~\eqref{eq_a_value} and discount as in Step~6:
+\begin{equation}
+\mathbb{E}_{\mathbb{Q}}\!\big[\max(f-K,0)\big] = C_{\max}\,\tilde a,
+\qquad
+\boxed{\;C = e^{-rT}\,C_{\max}\,\tilde a\;}
+\end{equation}
+This is a \textbf{single} QAE run: it returns the expected payoff (and hence the price) directly, with $O(1/\varepsilon)$ calls to $\mathcal{A}$ versus the $O(1/\varepsilon^2)$ samples of classical Monte Carlo. No $\lambda$ grid and no Fourier inversion are involved --- the only cost is building the reversible payoff block $\mathcal{F}$.
+
+\begin{remark}[Relation to the Fourier route]
+The phase encoding of Steps~3--4 (the QNDM trick, with its single ancilla and the strike absorbed into the phase) is what powers the \emph{Fourier} route of Sec.~\ref{sec_fourier}; that route is light on qubits but intrinsically requires sweeping $\lambda$. The QAE route above instead spends extra qubits on the work register and the comparator inside $\mathcal{F}$, but in return extracts $\mathbb{E}[\max(f-K,0)]$ in one estimation, with no $\lambda$ dependence at all. It does not, however, exploit the QNDM phase encoding. The next subsection shows how to keep \emph{both}.
+\end{remark}
+
+\subsection{QNDM-powered single-run QAE via QSVT}\label{sec_qsvt}
+
+The previous subsection reached a single-run QAE only by discarding the QNDM phase trick: the payoff $\Delta(x)$ was recomputed numerically into a register by $\mathcal{F}$. We now show that one can keep the QNDM phase encoding \emph{and} obtain a single estimation (no $\lambda$ sweep), at the price of a more sophisticated bridge --- a spectral transformation (Quantum Singular Value Transformation, QSVT) instead of a single Hadamard.
+
+\subsubsection{Why a Hadamard is not enough}
+
+The bridge $H_d$ of the Fourier route extracts only $\operatorname{Re}G(\lambda)=\mathbb{E}[\cos\lambda(f-K)]$ --- a \emph{single Fourier mode} of the payoff. Recovering the kinked function $\max(f-K,0)$ from its Fourier modes is exactly the inversion that forces the $\lambda$ sweep. To avoid it we must apply a \emph{nonlinear function of $f$ in one shot}, which a single linear gate cannot do.
+
+\subsubsection{The QNDM circuit as a phase oracle}
+
+Fix a single coupling $c$ (no sweep) and absorb the strike as in Step~4. The whole QNDM accumulation of Steps~3--4 is then a diagonal unitary --- a \emph{phase oracle} of the (shifted, rescaled) payoff variable,
+\begin{equation}\label{eq_phase_oracle}
+O \;=\; \sum_{x\in\{0,1\}^M} e^{\,i\,c\,(f(x)-K)}\,\ket{x}\!\bra{x},
+\qquad
+\theta(x) \equiv c\,(f(x)-K) \in [-\pi,\pi],
+\end{equation}
+where $c$ is chosen so that $\theta(x)$ stays in the principal branch. Crucially, $O$ encodes $f(x)$ in its \emph{eigenphases} $\theta(x)$ and requires \emph{no numerical register} for the average: it is built from the same single-ancilla phase kicks of Sec.~\ref{sec_step3}.
+
+\subsubsection{Applying the payoff as a polynomial (QSVT/QET-U)}
+
+Given controlled access to $O$ and $O^\dagger$, the Quantum Eigenvalue/Singular-Value Transformation \cite{gilyen2019qsvt,martyn2021grand} applies a degree-$d$ polynomial $p$ to the eigenphases using an interleaved sequence of controlled-$O$ and single-qubit $Z$-rotations $R_Z(\varphi_k)$ on one signal-processing ancilla $s$:
+\begin{equation}\label{eq_qsvt_seq}
+W \;=\; R_Z(\varphi_0)\prod_{k=1}^{d}\Big[\,\text{c-}O\;R_Z(\varphi_k)\,\Big],
+\end{equation}
+with phases $\{\varphi_k\}$ pre-computed classically so that the block-encoded function equals a smooth polynomial approximation of the (rescaled) ReLU payoff,
+\begin{equation}\label{eq_relu_poly}
+p\big(\theta(x)\big) \;\approx\; \frac{\max(f(x)-K,\,0)}{C_{\max}}, \qquad |x|\le 1 .
+\end{equation}
+The effect on the ancilla $s$ (initialised in $\ket{0}$) is precisely the payoff-into-amplitude map we needed, but now driven by the \emph{phase} oracle rather than by arithmetic:
+\begin{equation}\label{eq_qsvt_state}
+W:\quad \ket{x}\ket{0}_s \;\longmapsto\; \ket{x}\Big(p(\theta(x))\,\ket{0}_s + \sqrt{1-p(\theta(x))^2}\,\ket{1}_s\Big).
+\end{equation}
+Acting on the loaded superposition $\sum_x\sqrt{p(x)}\ket{x}$ from Step~1, the probability of the marked outcome $s=0$ is the rescaled expected payoff,
+\begin{equation}\label{eq_qsvt_amp}
+a \;=\; \Pr[s=0] \;=\; \sum_x p(x)\,p(\theta(x))^2 \;\approx\; \frac{1}{C_{\max}^2}\,\mathbb{E}_{\mathbb{Q}}\!\big[\max(f-K,0)^2\big],
+\end{equation}
+or, using a linear (rather than squared) encoding $p\approx\sqrt{\max(f-K,0)/C_{\max}}$, directly $a\approx \tfrac{1}{C_{\max}}\mathbb{E}[\max(f-K,0)]$.
+
+\subsubsection{Single QAE on the QSVT ancilla}
+
+Let $\mathcal{A}_{\text{QSVT}}$ denote ``load paths (Step~1) $+$ apply $W$ of Eq.~\eqref{eq_qsvt_seq}''. Running \emph{one} amplitude estimation (the circuit of Fig.~\ref{fig_qae_circuit}, with the marked qubit now $s$ and $\mathcal{A}\to\mathcal{A}_{\text{QSVT}}$) returns $\tilde a\approx a$ with $O(1/\varepsilon)$ calls to $\mathcal{A}_{\text{QSVT}}$, and the price follows as $C=e^{-rT}\,C_{\max}\,\tilde a$ (linear encoding). No $\lambda$ grid, no Fourier inversion, and no numerical register for the average --- the QNDM phase oracle is used directly.
+
+\begin{figure}[h]
+\centering
+\begin{quantikz}[column sep=0.30cm, row sep=0.32cm]
+\lstick{$\ket{0}_s$ \\ \scriptsize signal}
+ & \gate{R_Z(\varphi_0)} & \ctrl{1} & \gate{R_Z(\varphi_1)} & \ctrl{1} & \ \cdots\ & \gate{R_Z(\varphi_d)} & \meter{}\ \text{(QAE)} \\
+\lstick[wires=2]{\shortstack{$\ket{0}^{\otimes M}$\\ \scriptsize paths}}
+ & \gate[2]{R_Y(\theta_i)} & \gate[2]{O} & \qw & \gate[2]{O} & \ \cdots\ & \qw & \qw \\
+ &                         &            & \qw &            & \ \cdots\ & \qw & \qw
+\end{quantikz}
+\caption{QNDM-powered single-run QAE via QSVT. The QNDM accumulation is packaged as the phase oracle $O$ of Eq.~\eqref{eq_phase_oracle} (eigenphases $\theta(x)=c(f(x)-K)$, no numerical register for $f$). A QSVT sequence of $d$ controlled-$O$ calls interleaved with $R_Z(\varphi_k)$ rotations on the signal qubit $s$ realises the polynomial $p(\theta)\approx\max(f-K,0)/C_{\max}$ of Eq.~\eqref{eq_relu_poly}, encoding the payoff into the amplitude of $s$ (Eq.~\eqref{eq_qsvt_state}). A single amplitude estimation on $s$ (Fig.~\ref{fig_qae_circuit}) then yields the price, with no $\lambda$ sweep.}
+\label{fig_qsvt_circuit}
+\end{figure}
+
+\subsubsection{Cost and trade-off}
+
+The kink of the ReLU is the only price to pay. Approximating $\max(\cdot,0)$ to accuracy $\varepsilon$ with a smoothing scale $\delta$ around the strike requires a polynomial of degree $d=O\!\big(\tfrac{1}{\delta}\log\tfrac1\varepsilon\big)$, i.e.\ $d$ calls to the QNDM oracle $O$ per preparation. Combined with the $O(1/\varepsilon)$ QAE repetitions \cite{montanaro2015quantum}, the total oracle complexity is $O\!\big(\tfrac{d}{\varepsilon}\big)=O\!\big(\tfrac{1}{\delta\varepsilon}\log\tfrac1\varepsilon\big)$. In exchange one keeps all the QNDM advantages: a single phase ancilla, the strike $K$ absorbed in the phase, and crucially \emph{no multi-qubit register for the path average} (the main qubit overhead of the amplitude-encoding route). This is the sense in which the QNDM \emph{can} be put inside a single-run QAE --- the missing ingredient is the spectral transformation, not another Hadamard.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Step 6 --- Discounting to the present price}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Both routes return $\mathbb{E}_{\mathbb{Q}}\!\big[\max(f-K,0)\big]$. The option fair value is the discounted expectation of Eq.~\eqref{eq_price},
+\begin{equation}
+C = e^{-rT}\,\mathbb{E}_{\mathbb{Q}}\!\big[\max(f-K,0)\big],
+\qquad
+\text{with }
+f=\begin{cases}S_T & \textbf{European}\\[2pt]\bar S & \textbf{Asian.}\end{cases}
+\end{equation}
+For a time-dependent rate, $e^{-rT}\to\exp\!\big(-\sum_{i=1}^{M} r_i\,\deltat\big)$. A put uses $\max(K-f,0)$ throughout.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The procedure at a glance}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{enumerate}
+    \item \textbf{Inputs}: $S_0,K,T,r,\sigma$ (or $r_i,\sigma_i$), number of steps $M$, target error $\varepsilon$. European $\Rightarrow M=1$; Asian $\Rightarrow M>1$.
+    \item \textbf{Classical pre-processing} (Step~0): compute $u_i,d_i$ and the risk-neutral $q_i=\frac{e^{r_i\deltat}-d_i}{u_i-d_i}$; set $\theta_i=2\arcsin\sqrt{q_i}$.
+    \item \textbf{Load paths} (Step~1): $M$ rotations $R_Y(\theta_i)$ $\Rightarrow$ $\sum_x\sqrt{p(x)}\ket{x}$.
+    \item \textbf{Init detector} (Step~2): $H$ on ancilla $\Rightarrow \ket{+}_d$.
+    \item \textbf{Phase encode} (Step~3): diagonal $U_t$ with $\phi_t$ from Eq.~\eqref{eq_phit} $\Rightarrow$ $e^{i\lambda f(x)}$. (\emph{Only here European/Asian differ.})
+    \item \textbf{Strike} (Step~4): $R_Z(-2\lambda K)$ $\Rightarrow$ $e^{i\lambda(f-K)}$.
+    \item \textbf{Estimate}: either (5a) sweep $\lambda$, measure $\operatorname{Re}/\operatorname{Im}G(\lambda)$, Fourier-invert; or (5b) encode $\max(f-K,0)$ in an amplitude and run QAE.
+    \item \textbf{Discount} (Step~6): $C=e^{-rT}\,\mathbb{E}[\max(f-K,0)]$.
+\end{enumerate}
+
+\paragraph{Resources.} Qubits: $M$ (paths) $+1$ (detector) $+O(\log M)$ (work) $[\,+O(\log\frac1\varepsilon)$ for QAE$\,]$. Gates: $O(M)$ for loading, $\mathrm{poly}(M)$ for the phase encoding; repetitions $O(1/\varepsilon)$ for both Fourier and QAE, the quadratic improvement over the classical $O(1/\varepsilon^2)$ Monte-Carlo sampling.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Comparative analysis and scaling}\label{sec_scaling}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We now defend the claim that the proposed algorithm is competitive, by comparing it on a common footing against the three natural baselines:
+\begin{enumerate}
+    \item \textbf{Classical Monte Carlo} (MC) \cite{glasserman2004monte} --- the workhorse of derivative pricing;
+    \item \textbf{Oracle-based quantum amplitude estimation} (\,``Stamatopoulos et al.''\,) \cite{Stamatopoulos_2020} --- the reference quantum scheme, in which the price distribution is loaded by an abstract oracle and the payoff is computed in a value register;
+    \item \textbf{Our three routes}: QNDM$+$Fourier (Sec.~\ref{sec_fourier}), QNDM$+$QAE in amplitude (Sec.~\ref{sec_qae}), and QNDM$+$QSVT (Sec.~\ref{sec_qsvt}).
+\end{enumerate}
+The figures of merit are: the \emph{number of qubits}, the \emph{circuit depth} of one coherent run, the \emph{query/sample complexity} to reach an additive error $\varepsilon$ on the price, and --- crucially --- the \emph{cost of state preparation}, which is where most quantum pricing schemes hide their true complexity.
+
+\subsection{Error scaling: the quadratic advantage}
+
+To estimate the discounted expected payoff to additive accuracy $\varepsilon$:
+\begin{itemize}
+    \item classical MC averages $N$ i.i.d.\ paths; by the central limit theorem the statistical error is $\sigma/\sqrt N$, so $N=O(\sigma^2/\varepsilon^2)$ samples are needed --- the canonical $1/\varepsilon^2$ scaling;
+    \item amplitude estimation \cite{montanaro2015quantum} encodes the same expectation in an amplitude and resolves it with $O(1/\varepsilon)$ calls to the preparation operator.
+\end{itemize}
+Both our QAE and QSVT routes inherit this \textbf{quadratic speed-up} $1/\varepsilon^2 \to 1/\varepsilon$, identical in $\varepsilon$-scaling to Stamatopoulos et al.; the difference between the quantum methods is therefore \emph{not} the asymptotic $\varepsilon$ exponent but the prefactors --- qubit count and, above all, state preparation.
+
+\subsection{The decisive point: state preparation is essentially free here}
+
+In a general quantum pricing scheme the underlying distribution must be \emph{loaded} into the quantum state. Loading an arbitrary distribution into $n$ qubits is expensive: Grover--Rudolph requires integrals of the density, and variational loaders (qGAN) are approximate and hard to train --- this loading oracle is the genuine bottleneck of \cite{Stamatopoulos_2020}, usually left abstract.
+
+Our model sidesteps this entirely. Under the (time-dependent) binomial dynamics the \emph{moves} are independent across steps, so the path measure factorises,
+\begin{equation}
+p(x) = \prod_{i=1}^{M} q_i^{\,x_i}(1-q_i)^{1-x_i},
+\end{equation}
+a \emph{product distribution}. It is therefore loaded \textbf{exactly} by $M$ independent single-qubit rotations $R_Y(\theta_i)$ (Step~1), with
+\begin{equation}
+\boxed{\;\text{state-preparation cost} = O(M)\ \text{gates, exact, no loading oracle.}\;}
+\end{equation}
+This is the strongest argument in favour of the method: the step that dominates the cost of competing quantum algorithms is, for the binomial model, trivial and exact. The nonlinearity of the payoff (the average, the $\max$) is handled \emph{afterwards}, coherently, rather than baked into an expensive loading oracle.
+
+\subsection{Qubit count: no price register}
+
+Oracle-based QAE needs a register of $n_p$ qubits to hold the discretised price/average to relative precision $2^{-n_p}$, plus the comparator ancillas. Our phase-based routes never store the average as a number:
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Method} & \textbf{Qubits} & \textbf{Price register?} \\
+\hline
+Classical MC & $0$ & --- \\
+Oracle QAE \cite{Stamatopoulos_2020} & $n_p + n_{\text{load}} + O(\log\tfrac1\varepsilon)$ & yes ($n_p$ bits) \\
+QNDM $+$ Fourier & $M + 1 + O(\log M)$ & \textbf{no} (phase) \\
+QNDM $+$ QAE (amplitude) & $M + O(\log M) + O(\log\tfrac1\varepsilon)$ & partial (comparator) \\
+QNDM $+$ QSVT & $M + O(1) + O(\log\tfrac1\varepsilon)$ & \textbf{no} (phase) \\
+\hline
+\end{tabular}
+\end{center}
+The Fourier and QSVT routes are \emph{linear in $M$ and free of the price-precision register $n_p$}: accuracy on the price comes from the number of QAE iterations / $\lambda$ points, not from more qubits. For a \emph{path-dependent} (Asian) payoff the $M$ path qubits are unavoidable anyway --- the average genuinely depends on the whole trajectory --- so spending them on the path while keeping the value in a single phase is essentially optimal.
+
+\subsection{Full complexity table}
+
+Let $\varepsilon$ be the target price error, $M$ the number of steps, and $\delta$ the smoothing scale of the payoff kink (QSVT only).
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Qubits} & \textbf{Queries / samples} & \textbf{Loading} \\
+\hline
+Classical MC & $0$ & $O\!\big(1/\varepsilon^2\big)$ & sampling, $O(M)$/path \\
+Oracle QAE \cite{Stamatopoulos_2020} & $n_p+n_{\text{load}}+O(\log\tfrac1\varepsilon)$ & $O\!\big(1/\varepsilon\big)$ & oracle (qGAN/GR), costly/approx. \\
+QNDM $+$ Fourier & $M+1+O(\log M)$ & $O\!\big(1/\varepsilon\big)$ per $\lambda$, $\times\,N_\lambda$ & exact, $O(M)$ \\
+QNDM $+$ QAE & $M+O(\log M)+O(\log\tfrac1\varepsilon)$ & $O\!\big(1/\varepsilon\big)$ & exact, $O(M)$ \\
+QNDM $+$ QSVT & $M+O(1)+O(\log\tfrac1\varepsilon)$ & $O\!\big(\tfrac{1}{\delta\varepsilon}\log\tfrac1\varepsilon\big)$ & exact, $O(M)$ \\
+\hline
+\end{tabular}
+\end{center}
+Per-run circuit depth is $\mathrm{poly}(M)$ for all quantum routes (dominated by the diagonal phase operators / arithmetic), with an extra factor $d=O(\tfrac1\delta\log\tfrac1\varepsilon)$ for QSVT. All quantum routes beat classical MC in $\varepsilon$; the QNDM family additionally beats oracle QAE on the \emph{loading} column --- exactly the term that dominates in practice.
+
+\subsection{Time-dependent parameters at no extra cost}
+
+A further structural advantage: because the load is one rotation per step and the phase is accumulated step by step, every coefficient may depend on time. The angle $\theta_i=2\arcsin\sqrt{q_i}$ uses the step-$i$ risk-neutral probability, and each diagonal operator $U_t$ uses the step-$t$ factors $u_t,d_t$. Non-constant volatility $\sigma(t)$ or interest rate $r(t)$ are thus handled \textbf{natively}, whereas an oracle-based scheme would in general require a different, separately-compiled loading oracle for each time slice.
+
+\subsection{Honest limitations}
+
+For balance we state where the method does \emph{not} dominate:
+\begin{itemize}
+    \item \textbf{Fourier route}: the $\lambda$-sweep multiplies the cost by $N_\lambda$ (the number of grid points needed for a stable Gil--Pelaez inversion); its $\varepsilon$-advantage can be eroded by this prefactor.
+    \item \textbf{QAE-amplitude route}: it gives up part of the qubit advantage, since computing $\max(f-K,0)$ reversibly reintroduces a comparator and a (small) value register.
+    \item \textbf{QSVT route}: the kink of the payoff forces a polynomial of degree $d=O(\tfrac1\delta\log\tfrac1\varepsilon)$ and a classical pre-computation of the phase factors $\{\varphi_k\}$; the depth grows by this factor $d$.
+    \item \textbf{vs.\ classical MC}: for \emph{small} $M$ and \emph{loose} accuracy the constant factors and the need for fault-tolerant depth mean classical MC remains preferable in practice; the crossover favours the quantum method only at high accuracy (small $\varepsilon$) and/or many steps $M$.
+    \item \textbf{Discretisation bias}: the binomial tree introduces an $O(1/M)$ bias w.r.t.\ the continuous model, common to all lattice methods and independent of the quantum machinery.
+\end{itemize}
+
+\subsection{Verdict}
+
+The algorithm is \emph{better than the alternatives in the regime that matters for a genuine quantum advantage}: high-accuracy pricing of path-dependent (Asian) options with possibly time-dependent parameters. It matches the $O(1/\varepsilon)$ quadratic speed-up of the best quantum scheme \cite{Stamatopoulos_2020} while \emph{(i)} removing the dominant cost of that scheme --- the distribution-loading oracle --- via an exact $O(M)$ product-form preparation; \emph{(ii)} eliminating the price-precision register through phase (Fourier) or spectral (QSVT) encoding; and \emph{(iii)} supporting time-dependent coefficients natively. Against classical Monte Carlo it offers the standard quadratic improvement in $\varepsilon$. These are the precise senses in which the method is defensible as an improvement over the state of the art.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Bibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\printbibliography
+
+\end{document}

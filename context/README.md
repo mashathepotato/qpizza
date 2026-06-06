@@ -3,11 +3,12 @@
 Shared reference for our team (2 CS + 2 physics). Goal: a creative, end-to-end,
 **quantum-native** PoC that wins.
 
-> ## ✅ DECISION LOCKED → **["The Madness of People Is Quantum"](./VISION.md)**
-> We model investor irrationality as quantum probability (quantum cognition). **Read
-> [`VISION.md`](./VISION.md) first** — it's the single source of truth (pitch, science, build
-> status, task board). Working code is in [`/quantum_investor`](../quantum_investor) and already
-> runs. Files below are the research trail that led here.
+> ## ✅ DECISION LOCKED → **["The Madness of People Is Quantum"](./VISION.md) → quantum option pricing**
+> **Motivation:** markets are non-classical (quantum cognition). **Technical core:** a quantum
+> option pricer (QNDM phase encoding + QAE/QSVT; full math in [`../paper/main_V2.tex`](../paper/main_V2.tex)).
+> **Read [`VISION.md`](./VISION.md) first** — it's the single source of truth (pitch, science,
+> build status, task board). The motivation demo in [`/quantum_investor`](../quantum_investor)
+> already runs; the pricer is the build target. Files below are the research trail that led here.
 
 ## Files
 - [`challenge.md`](./challenge.md) — the official challenge, judging criteria, prizes, stakes.
