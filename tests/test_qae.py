@@ -5,6 +5,7 @@ from triage.harness.qae import (
     run,
     _qae_oracle_calls,
     scaling_curve,
+    price_european_call,
 )
 
 
@@ -42,3 +43,27 @@ def test_scaling_quantum_beats_classical_slope():
     assert abs(c["q_slope"]) < abs(c["mc_slope"])
     # at the smallest eps the quantum cost is far below MC's sample cost
     assert c["q_queries"][-1] < c["mc_samples"][-1]
+
+
+def test_price_european_call_matches_discretized_expectation():
+    # Small uncertainty register + modest shots so this stays fast (<60s).
+    res = price_european_call(
+        num_uncertainty_qubits=3, strike=1.9, s0=2.0, vol=0.4,
+        r=0.05, t_maturity=0.1, epsilon=0.01, shots=4096,
+    )
+    assert res["price"] > 0.0
+    assert res["oracle_queries"] > 0
+    assert res["n_qubits"] > 3  # uncertainty register + payoff/ancilla qubits
+    exact = res["exact_payoff"]
+    # QAE price is a real shot-based amplitude estimate; confirm it tracks the
+    # exact discretized expected payoff the model loads.
+    assert abs(res["price"] - exact) < 0.05, (res["price"], exact)
+
+
+def test_run_european_call_mode_returns_record():
+    rec = run({"config_id": "opt0", "candidate": "B",
+               "mode": "european_call", "epsilon": 0.01})
+    assert rec.method == "qae"
+    assert rec.metric_name == "samples_to_eps"
+    assert rec.quantum_metric > 0
+    assert "European" in rec.notes
