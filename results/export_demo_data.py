@@ -11,6 +11,7 @@ Run:  python -m results.export_demo_data
 """
 import json
 import os
+from math import comb
 
 import numpy as np
 
@@ -66,6 +67,54 @@ def build_prices(series_meta, K, T, M_paths=3):
                           path_probs=[float(p) for p in probs]))
 
 
+def _binom_pmf(i, q):
+    return np.array([comb(i, k) * q ** k * (1 - q) ** (i - k) for k in range(i + 1)])
+
+
+def build_forecast(S0, K, r, sigma, T, M=52, n_paths=14, seed=7):
+    """The risk-neutral price-prediction CONE the demo animates open (beat 1).
+
+    Same CRR tree math as results/price_forecast.py, exported as JSON arrays over
+    M weekly steps: quantile bands of S_t, the forward path E[S_t]=S0 e^{rt}, a few
+    sample trajectories, and the terminal distribution at t=T (what the call is priced on).
+    Pure numpy -- no QAE -- so it is fast and deterministic.
+    """
+    u, d, q = tree.crr_params(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M)
+    dt = T / M
+    times = (np.arange(M + 1) * dt).tolist()
+
+    qs = {"p05": 0.05, "p25": 0.25, "p50": 0.50, "p75": 0.75, "p95": 0.95}
+    bands = {name: [] for name in qs}
+    for i in range(M + 1):
+        cdf = np.cumsum(_binom_pmf(i, q))
+        prices_w = np.array([S0 * u ** w * d ** (i - w) for w in range(i + 1)])
+        for name, p in qs.items():
+            w_idx = min(int(np.searchsorted(cdf, p)), i)
+            bands[name].append(float(prices_w[w_idx]))
+
+    exp_path = [float(S0 * np.exp(r * t)) for t in times]
+
+    rng = np.random.default_rng(seed)
+    ups = rng.random((n_paths, M)) < q
+    paths = []
+    for k in range(n_paths):
+        s, row = S0, [float(S0)]
+        for i in range(M):
+            s *= u if ups[k, i] else d
+            row.append(float(s))
+        paths.append(row)
+
+    pmf_T = _binom_pmf(M, q)
+    prices_T = np.array([S0 * u ** w * d ** (M - w) for w in range(M + 1)])
+    order = np.argsort(prices_T)
+    terminal = dict(prices=[float(x) for x in prices_T[order]],
+                    pmf=[float(x) for x in pmf_T[order]],
+                    expected=float(np.sum(pmf_T * prices_T)))
+    return dict(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                times=times, bands=bands, exp_path=exp_path, paths=paths,
+                terminal=terminal)
+
+
 def hardware_placeholder():
     """Q50 slot a teammate overwrites with real counts. Frontend shows 'pending'."""
     return dict(status="pending", backend="Q50", route="fourier",
@@ -81,18 +130,22 @@ def main(out_dir=None, allow_network=True, M_paths=3, M_conv=5, seeds=6):
 
     prices = build_prices((series, meta), K=K, T=T_MATURITY, M_paths=M_paths)
     conv = build_convergence(S0=S0, K=K, r=r, sigma=sigma, T=T_MATURITY, M=M_conv, seeds=seeds)
+    forecast = build_forecast(S0=S0, K=K, r=r, sigma=sigma, T=T_MATURITY)
 
     with open(os.path.join(out_dir, "prices.json"), "w") as fh:
         json.dump(prices, fh, indent=2)
     with open(os.path.join(out_dir, "convergence.json"), "w") as fh:
         json.dump(conv, fh, indent=2)
+    with open(os.path.join(out_dir, "forecast.json"), "w") as fh:
+        json.dump(forecast, fh, indent=2)
     hw_path = os.path.join(out_dir, "hardware.json")
     if not os.path.exists(hw_path):          # never clobber a real Q50 result
         with open(hw_path, "w") as fh:
             json.dump(hardware_placeholder(), fh, indent=2)
-    return dict(prices=prices, convergence=conv)
+    return dict(prices=prices, convergence=conv, forecast=forecast)
 
 
 if __name__ == "__main__":
     main()
-    print("wrote prices.json + convergence.json to results/ (hardware.json only if it was absent)")
+    print("wrote prices.json + convergence.json + forecast.json to results/ "
+          "(hardware.json only if it was absent)")

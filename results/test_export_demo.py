@@ -7,6 +7,25 @@ from results import export_demo_data as ex
 FAST = dict(S0=100.0, K=100.0, r=0.05, sigma=0.20, T=1.0)
 
 
+def test_build_forecast_cone_widens_and_is_well_formed():
+    f = ex.build_forecast(M=12, **FAST)
+    n = f["M"] + 1
+    assert len(f["times"]) == n and f["times"][0] == 0.0
+    for name in ("p05", "p25", "p50", "p75", "p95"):
+        assert len(f["bands"][name]) == n
+    # the cone widens: terminal 5-95 spread > the spread one step in
+    spread_end = f["bands"]["p95"][-1] - f["bands"]["p05"][-1]
+    spread_start = f["bands"]["p95"][1] - f["bands"]["p05"][1]
+    assert spread_end > spread_start > 0
+    # forward path starts at S0 and grows at the risk-free rate
+    assert abs(f["exp_path"][0] - f["S0"]) < 1e-9
+    assert f["exp_path"][-1] > f["exp_path"][0]
+    # sample paths + terminal distribution are well-formed
+    assert all(len(p) == n and p[0] == f["S0"] for p in f["paths"])
+    assert abs(sum(f["terminal"]["pmf"]) - 1.0) < 1e-9
+    assert len(f["terminal"]["prices"]) == n
+
+
 def test_build_convergence_has_real_descending_series_and_slopes():
     conv = ex.build_convergence(M=4, seeds=2, **FAST)
     assert conv["ground_truth"] > 0
