@@ -44,6 +44,7 @@ TRACKS = [
         "claim": "QNDM+QAE reaches accuracy eps in O(1/eps) oracle queries vs MC's O(1/eps^2).",
         "figure": _p("results", "figures", "price_forecast.png"),
         "extra_figures": [
+            _p("results", "figures", "backtest_rolling.png"),
             _p("results", "figures", "backtest_walkforward.png"),
             _p("results", "figures", "model_results.png"),
             _p("results", "figures", "error_vs_queries.png"),
@@ -57,6 +58,14 @@ TRACKS = [
                                    "S0=13.09 EUR, the CRR risk-neutral tree predicts the "
                                    "price distribution over the 1-year horizon (E[S_T]=13.49, "
                                    "forward). The terminal distribution is what the call is priced on."),
+            "backtest_rolling.png": ("Rolling backtest: sliding 60-day windows (stride 1, "
+                                     "0-60, 1-61, ...), each calibrated on its first 30 days and "
+                                     "forecasting the next 30 (M=8 steps). Every future day is "
+                                     "forecast by up to 30 overlapping windows, averaged per day. "
+                                     "Realized price breaks above the risk-neutral cone (67% "
+                                     "coverage) - honest: it underpredicts a momentum stock. The "
+                                     "QNDM forecast and MC mean coincide; all 4 routes agree on "
+                                     "the option price (MAE vs exact tree in the inset)."),
             "backtest_walkforward.png": ("Walk-forward backtest: the year is cut into 60-day "
                                          "chunks; each forecast cone (M=8 steps, ~3.75 trading "
                                          "days/step) is calibrated on the prior 30 days (shaded) "
