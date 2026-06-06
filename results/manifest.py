@@ -42,8 +42,10 @@ TRACKS = [
         "key": "pricer",
         "title": "Quantum Option Pricer - quadratic Monte-Carlo speedup",
         "claim": "QNDM+QAE reaches accuracy eps in O(1/eps) oracle queries vs MC's O(1/eps^2).",
-        "figure": _p("quantum_pricer", "complexity.png"),
+        "figure": _p("results", "figures", "model_results.png"),
         "extra_figures": [
+            _p("results", "figures", "error_vs_queries.png"),
+            _p("quantum_pricer", "complexity.png"),
             _p("quantum_pricer", "speedup.png"),
             _p("quantum_pricer", "depth_crossover.png"),
         ],

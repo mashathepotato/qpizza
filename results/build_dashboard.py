@@ -74,9 +74,11 @@ def _section_html(track, figures_dir):
         data = collect(fp)
         if data is None:
             continue
-        # persist a copy into results/figures/ for archival
+        # persist a copy into results/figures/ for archival (skip if already there)
         os.makedirs(figures_dir, exist_ok=True)
-        shutil.copy(fp, os.path.join(figures_dir, os.path.basename(fp)))
+        dst = os.path.join(figures_dir, os.path.basename(fp))
+        if os.path.abspath(fp) != os.path.abspath(dst):
+            shutil.copy(fp, dst)
         imgs.append(f'<img src="{embed(data)}" alt="{title}"/>')
 
     if imgs:
