@@ -1,0 +1,173 @@
+{
+  "meta": {
+    "generated_utc": "2026-06-06 12:34:44Z",
+    "data_source": "LIVE yfinance",
+    "ticker": "NOKIA.HE",
+    "data_window": "2025-06-05 to 2026-06-05 (251 obs)",
+    "S0": 13.09000015258789,
+    "sigma": 0.4790140434991577,
+    "r": 0.03,
+    "K": 13.09,
+    "T": 1.0,
+    "M_price": 3,
+    "M_bench": 4,
+    "eps": 0.01,
+    "n_mc_paths": 100000,
+    "currency": "EUR (NOKIA.HE)"
+  },
+  "references": {
+    "tree_price": 2.775233926048305,
+    "bs_price": 2.639288149390202,
+    "bs_minus_tree": -0.13594577665810315
+  },
+  "routes": [
+    {
+      "name": "Classical Monte Carlo",
+      "group": "classical",
+      "price": 2.7746857414508237,
+      "ref_name": "exact tree (M=3)",
+      "ref_value": 2.775233926048305,
+      "abs_err": -0.0005481845974815158,
+      "rel_err": -0.0001975273479962403,
+      "tag": "SIMULATED",
+      "sim_how": "pseudo-random sampling of 100000 tree paths",
+      "note": "stderr = 0.0141 EUR (1 sigma)",
+      "queries": 100000
+    },
+    {
+      "name": "Black-Scholes (closed form)",
+      "group": "classical",
+      "price": 2.639288149390202,
+      "ref_name": "itself (analytic)",
+      "ref_value": 2.639288149390202,
+      "abs_err": 0.0,
+      "rel_err": 0.0,
+      "tag": "THEORETICAL",
+      "sim_how": "closed-form Black-Scholes formula (no sampling)",
+      "note": "continuum M->inf limit; differs from tree by O(1/M) discretisation",
+      "queries": null
+    },
+    {
+      "name": "OURS \u2014 QNDM Fourier",
+      "group": "ours",
+      "price": 2.7752339261159578,
+      "ref_name": "exact tree (M=3)",
+      "ref_value": 2.775233926048305,
+      "abs_err": 6.765255022855854e-11,
+      "rel_err": 2.4377242434798986e-11,
+      "tag": "SIMULATED",
+      "sim_how": "statevector (exact probabilities, noiseless)",
+      "note": "O(1/eps^2) in SHOTS; win is shallow depth + exact loading, not eps-scaling",
+      "queries": null
+    },
+    {
+      "name": "OURS \u2014 QNDM QAE",
+      "group": "ours",
+      "price": 2.7755542666244652,
+      "ref_name": "exact tree (M=3)",
+      "ref_value": 2.775233926048305,
+      "abs_err": 0.00032034057616003864,
+      "rel_err": 0.00011542831512447534,
+      "tag": "SIMULATED",
+      "sim_how": "finite-shot Sampler, Iterative Amplitude Estimation",
+      "note": "O(1/eps) oracle queries (quadratic speed-up); eps_target=0.010",
+      "queries": 57344
+    },
+    {
+      "name": "OURS \u2014 novel QSVT",
+      "group": "ours",
+      "price": 2.7844523287041505,
+      "ref_name": "exact tree (M=3)",
+      "ref_value": 2.775233926048305,
+      "abs_err": 0.009218402655845281,
+      "rel_err": 0.0033216668942107866,
+      "tag": "SIMULATED",
+      "sim_how": "statevector (straddle transfer function, noiseless)",
+      "note": "straddle E[|f-K|] + put-call parity; ~1.4% polynomial-approx floor (degree 60)",
+      "queries": null
+    },
+    {
+      "name": "SOTA \u2014 Qiskit-Finance oracle-QAE",
+      "group": "sota",
+      "price": 2.5818884517064826,
+      "ref_name": "Black-Scholes (continuum)",
+      "ref_value": 2.639288149390202,
+      "abs_err": -0.05739969768371944,
+      "rel_err": -0.021748173914614602,
+      "tag": "SIMULATED",
+      "sim_how": "lognormal loader (n_p=3 qubits) + comparator + finite-shot IAE",
+      "note": "targets the LOGNORMAL/BS law, NOT the binomial tree. Its error is dominated by TRUNCATION (\u00b13\u03c3 bounds cut the call's upper tail) + the c_approx=0.25 rescaling-linearisation bias \u2014 not QAE statistical error",
+      "queries": 61440
+    }
+  ],
+  "sota_sweep": [
+    {
+      "n_p": 3,
+      "qubits": 7,
+      "cz_depth": 100,
+      "price": 2.5818884517064826,
+      "model_exact": 2.405315270002687,
+      "bs": 2.639288149390202,
+      "err_vs_bs": -0.05739969768371944,
+      "err_qae_vs_model": 0.17657318170379543,
+      "err_model_vs_bs": -0.23397287938751488,
+      "queries": 61440
+    },
+    {
+      "n_p": 4,
+      "qubits": 9,
+      "cz_depth": 145,
+      "price": 2.501402526043679,
+      "model_exact": 2.3198726610045135,
+      "bs": 2.639288149390202,
+      "err_vs_bs": -0.1378856233465231,
+      "err_qae_vs_model": 0.18152986503916546,
+      "err_model_vs_bs": -0.31941548838568856,
+      "queries": 61440
+    },
+    {
+      "n_p": 5,
+      "qubits": 11,
+      "cz_depth": 202,
+      "price": 2.472874276114888,
+      "model_exact": 2.290115944253388,
+      "bs": 2.639288149390202,
+      "err_vs_bs": -0.1664138732753142,
+      "err_qae_vs_model": 0.1827583318614998,
+      "err_model_vs_bs": -0.349172205136814,
+      "queries": 61440
+    }
+  ],
+  "resources": [
+    {
+      "method": "classical_mc",
+      "qubits": 0,
+      "cz_depth": 0
+    },
+    {
+      "method": "fourier",
+      "qubits": 5,
+      "cz_depth": 112
+    },
+    {
+      "method": "qae",
+      "qubits": 5,
+      "cz_depth": 16
+    },
+    {
+      "method": "qsvt",
+      "qubits": 5,
+      "cz_depth": 2240
+    },
+    {
+      "method": "sota_oracle_qae (n_p=3)",
+      "qubits": 7,
+      "cz_depth": 100
+    }
+  ],
+  "complexity": {
+    "mc_slope": 2.0,
+    "qae_slope": 1.0,
+    "note": "log-log slope of queries vs 1/eps; THEORETICAL (analytic CLT for MC, pi/(2 eps) for QAE)"
+  }
+}

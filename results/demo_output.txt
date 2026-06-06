@@ -1,0 +1,100 @@
+
+========================================================================
+  Step 1 — Market data (NOKIA.HE)
+========================================================================
+  Source   : yfinance
+  Ticker   : NOKIA.HE  (2025-06-05 – 2026-06-05,  n=251 obs)
+  S0 = 13.0900   sigma = 0.4790   r = 0.0300
+  K (ATM)  : 13.09   T = 1.0   M_price = 3   M_bench = 4
+
+========================================================================
+  Step 2 — Ground truth & continuum check
+========================================================================
+  Exact tree price  (M=3) [GROUND TRUTH]  : 2.775234
+  Black-Scholes                  [CONTINUUM CHECK]: 2.639288
+  BS – tree gap : -0.135946  (small at M=3; shrinks as M -> inf)
+
+========================================================================
+  Step 3 — Prices from all four routes  (M=3)
+========================================================================
+  Method                       Price   Error vs tree  Note
+  ----------------------  ----------  --------------  ------------------------------
+  classical MC              2.774686       -0.000548  stderr=0.0141, n=100,000
+  QNDM Fourier              2.775234       +0.000000  shots=None (statevector, O(1/eps^2) in shots)
+  QNDM QAE                  2.775554       +0.000320  eps=0.01, queries=57344
+  novel QSVT                2.784452       +0.009218  straddle+parity, ~1.4% approx floor (degree 60)
+
+========================================================================
+  Step 4 — Resource table (qubits + IQM CZ depth, M=4)
+========================================================================
+  Method              Qubits  CZ depth
+  ------------------  ------  --------
+  classical_mc             0         0
+  fourier                  5       112
+  qae                      5        16
+  qsvt                     5      2240
+
+========================================================================
+  Step 5 — Query-complexity plot (money slide)
+========================================================================
+  Running queries_to_accuracy at M=4 (analytic MC + empirical QAE)…
+  Saved complexity plot : /Users/masha/Documents/qhack/quantum_pricer/complexity.png
+  Fitted slope  classical MC  : 2.000  (theory = 2.0)
+  Fitted slope  QAE theory    : 1.000  (theory = 1.0)
+
+  Running error_vs_queries_rms at M=5 (seed-averaged RMS error; finite-shot QAE)…
+  Saved speedup plot    : /Users/masha/Documents/qhack/quantum_pricer/speedup.png
+  Fitted RMS slope  classical MC : -0.584  (expect -0.5)
+  Fitted RMS slope  QAE          : -0.799  (expect -1.0)
+
+========================================================================
+  Step 6 — Hamming-weight depth crossover & large-M price
+========================================================================
+  Phase-oracle CZ count after transpile to IQM {r,cz}: naive 2^M vs
+  Hamming-weight poly(M) (naive synthesis capped where 2^M is infeasible).
+
+    M    naive CZ   Hamming CZ  Note
+  ---  ----------  -----------  ----------------
+    4         114          218  
+    6         498          302  
+    8        2034         1026  
+   10        8178         1254  
+   12       32754         1482  
+   14  (infeasible)         1710  naive_infeasible
+   16  (infeasible)         4754  naive_infeasible
+
+  Crossover: Hamming CZ < naive CZ from M=6 onward.
+
+  Large-M price (Hamming-weight statevector; naive route cannot build it):
+    M=14  qubits=19  Hamming price=10.528126  exact (O(M) tree)=10.527820  abs error=0.000306
+    naive infeasible at this M: the naive oracle is a 2^14 = 16,384-entry diagonal.
+  Saved crossover plot  : /Users/masha/Documents/qhack/quantum_pricer/depth_crossover.png
+
+========================================================================
+  Summary
+========================================================================
+  Data source     : LIVE yfinance
+  S0=13.0900  K=13.09  sigma=0.4790  r=0.0300  T=1.0  M=3
+  Ground truth (tree, M=3) : 2.775234
+  Black-Scholes (continuum)       : 2.639288
+
+  Quadratic advantage (query-complexity plot):
+    MC analytic slope  ~2.00  (expect 2)
+    QAE theory slope   ~1.00  (expect 1)
+
+  Figures saved:
+    /Users/masha/Documents/qhack/quantum_pricer/complexity.png
+    /Users/masha/Documents/qhack/quantum_pricer/speedup.png
+    /Users/masha/Documents/qhack/quantum_pricer/depth_crossover.png
+
+  HEADLINE: Hamming-weight phase oracle keeps poly(M) CZ count where the
+    naive 2^M oracle becomes infeasible to synthesize; large-M price
+    (M=14, 19 qubits) matches the exact tree to 3.1e-04.
+
+  HONESTY NOTES:
+    * QSVT measures the straddle E[|f-K|] and recovers the call via
+      put-call parity; it carries a ~1.4% polynomial-approx residual.
+    * QNDM Fourier (shots=None) is O(1/eps^2) in shots — its win is
+      shallow depth / exact loading / Q50 feasibility, not eps-scaling.
+    * QAE's query schedule saturates at small M (annotated in complexity rows).
+
