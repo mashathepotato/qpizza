@@ -38,3 +38,36 @@ def test_save_speedup_plot_writes_png(base_params, tmp_path):
     path = benchmark.save_speedup_plot(rows, path=str(out))
     assert out.exists() and out.stat().st_size > 0
     assert str(out) == path
+
+
+def _mc_queries_at(rows, eps):
+    return next(r["queries"] for r in rows
+               if r["method"] == "classical_mc" and abs(r["epsilon"] - eps) < 1e-12)
+
+
+def _qae_theory_queries_at(rows, eps):
+    return next(r["queries"] for r in rows
+                if r["method"] == "qae" and r["kind"] == "theoretical"
+                and abs(r["epsilon"] - eps) < 1e-12)
+
+
+def test_queries_to_accuracy_mc_scales_quadratically(base_params):
+    # analytic CLT sample complexity N = (sigma/eps)^2 -> halving eps quadruples N
+    rows = benchmark.queries_to_accuracy(M=4, epsilons=(0.04, 0.02), **base_params)
+    ratio = _mc_queries_at(rows, 0.02) / _mc_queries_at(rows, 0.04)
+    assert 3.0 <= ratio <= 5.0
+
+
+def test_queries_to_accuracy_qae_subquadratic(base_params):
+    # theoretical QAE query count ~1/eps -> halving eps roughly doubles queries
+    rows = benchmark.queries_to_accuracy(M=4, epsilons=(0.04, 0.02), **base_params)
+    ratio = _qae_theory_queries_at(rows, 0.02) / _qae_theory_queries_at(rows, 0.04)
+    assert 1.5 <= ratio <= 3.0
+
+
+def test_complexity_plot_writes_file(base_params, tmp_path):
+    rows = benchmark.queries_to_accuracy(M=4, **base_params)
+    out = tmp_path / "complexity.png"
+    path = benchmark.save_complexity_plot(rows, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+    assert str(out) == path

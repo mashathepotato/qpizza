@@ -116,6 +116,142 @@ def resource_table(S0, K, r, sigma, T, M, option="european", kind="call",
     return table
 
 
+def payoff_std(S0, K, r, sigma, T, M, option="european", kind="call"):
+    """EXACT std of the discounted payoff under the risk-neutral path distribution.
+
+    sigma_payoff^2 = sum_x p(x) (d*payoff(x))^2 - (sum_x p(x) d*payoff(x))^2,
+    d = exp(-rT). Computed analytically from the full tree enumeration -- this is the
+    population std that drives the classical CLT, NOT an estimate from running MC.
+    """
+    vals = tree.payoff_variable_values(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                                       option=option)
+    p = tree.path_probabilities(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M)
+    if kind == "call":
+        payoff = np.maximum(vals - K, 0.0)
+    elif kind == "put":
+        payoff = np.maximum(K - vals, 0.0)
+    else:
+        raise ValueError(f"unknown kind {kind!r}")
+    d = np.exp(-r * T)
+    disc = d * payoff
+    mean = float(np.sum(p * disc))
+    var = float(np.sum(p * disc ** 2) - mean ** 2)
+    return float(np.sqrt(max(var, 0.0)))
+
+
+def queries_to_accuracy(S0, K, r, sigma, T, M, option="european", kind="call",
+                        epsilons=(0.2, 0.1, 0.05, 0.02, 0.01, 0.005)):
+    """Queries/samples each method needs to REACH each target accuracy eps.
+
+    Shows SCALING (not noisy point-errors). Returns rows with keys
+    {method, epsilon, queries, kind in {'empirical','theoretical'}, note}:
+
+      * classical_mc (kind='theoretical'): analytic CLT sample complexity
+        N = (sigma_payoff / eps)^2, sigma_payoff computed exactly from the tree.
+        These are ANALYTIC -- we do not run MC to get them.
+      * qae (kind='empirical'): num_oracle_queries actually reported by IAE at
+        epsilon_target=eps. At small M IAE's Grover-power schedule SATURATES: once
+        the query count stops growing as eps shrinks, those rows carry
+        note='qae_saturated' (a real small-M simulator artifact, reported honestly).
+      * qae (kind='theoretical'): the canonical amplitude-estimation query count
+        N_QAE(eps) ~= pi / (2 eps), a 1/eps reference line so the quadratic-vs-linear
+        scaling is visible even where the simulator saturates.
+    """
+    sigma_payoff = payoff_std(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M,
+                              option=option, kind=kind)
+    rows = []
+
+    # classical MC: analytic CLT sample complexity (1/eps^2 scaling)
+    for eps in epsilons:
+        n = (sigma_payoff / eps) ** 2
+        rows.append(dict(method="classical_mc", epsilon=float(eps),
+                         queries=float(n), kind="theoretical", note="analytic_clt"))
+
+    # QAE empirical: oracle queries IAE actually spends (can saturate at small M)
+    last_q = None
+    saturated = False
+    for eps in epsilons:
+        res = qae.price(S0=S0, K=K, r=r, sigma=sigma, T=T, M=M, option=option,
+                        kind=kind, epsilon_target=eps)
+        q = int(res["num_oracle_queries"])
+        # once finer eps no longer buys more queries, the schedule has saturated
+        if last_q is not None and q <= last_q:
+            saturated = True
+        note = "qae_saturated" if saturated else ""
+        rows.append(dict(method="qae", epsilon=float(eps), queries=float(q),
+                         kind="empirical", note=note))
+        last_q = q
+
+    # QAE theoretical: canonical N_QAE(eps) ~= pi/(2 eps) reference line (1/eps slope)
+    for eps in epsilons:
+        n = np.pi / (2.0 * eps)
+        rows.append(dict(method="qae", epsilon=float(eps), queries=float(n),
+                         kind="theoretical", note="theory_pi_over_2eps"))
+
+    return rows
+
+
+def save_complexity_plot(rows, path="quantum_pricer/complexity.png"):
+    """Log-log query-complexity plot: x = 1/eps, y = queries.
+
+    Plots analytic MC (slope ~2), empirical QAE points (where meaningful), and the
+    theoretical QAE 1/eps reference line (slope ~1). Empirical log-log slopes are
+    fitted via np.polyfit and ANNOTATED in the legend so ~2 vs ~1 is verifiable.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    def _fit_slope(xs, ys):
+        xs, ys = np.asarray(xs, float), np.asarray(ys, float)
+        m = (xs > 0) & (ys > 0)
+        if m.sum() < 2:
+            return None
+        return float(np.polyfit(np.log(xs[m]), np.log(ys[m]), 1)[0])
+
+    def _series(method, kind):
+        pts = sorted((1.0 / r["epsilon"], r["queries"]) for r in rows
+                     if r["method"] == method and r["kind"] == kind
+                     and r["epsilon"] > 0 and r["queries"] > 0)
+        if not pts:
+            return None, None
+        xs, ys = zip(*pts)
+        return list(xs), list(ys)
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+
+    mc_x, mc_y = _series("classical_mc", "theoretical")
+    if mc_x:
+        s = _fit_slope(mc_x, mc_y)
+        lab = "classical MC (analytic CLT)"
+        if s is not None:
+            lab += f", slope={s:.2f}"
+        ax.loglog(mc_x, mc_y, "s-", color="tab:red", label=lab)
+
+    qt_x, qt_y = _series("qae", "theoretical")
+    if qt_x:
+        s = _fit_slope(qt_x, qt_y)
+        lab = r"QAE theory $\pi/2\varepsilon$"
+        if s is not None:
+            lab += f", slope={s:.2f}"
+        ax.loglog(qt_x, qt_y, "--", color="tab:blue", label=lab)
+
+    qe_x, qe_y = _series("qae", "empirical")
+    if qe_x:
+        ax.loglog(qe_x, qe_y, "o", color="tab:blue", markersize=8,
+                  label="QAE empirical (IAE)")
+
+    ax.set_xlabel(r"$1/\varepsilon$  (target accuracy)")
+    ax.set_ylabel("oracle queries / samples to reach $\\varepsilon$")
+    ax.set_title("Query complexity: classical $O(1/\\varepsilon^2)$ "
+                 "vs quantum amplitude estimation $O(1/\\varepsilon)$")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
+
+
 def save_speedup_plot(rows, path="quantum_pricer/speedup.png"):
     """Write a log-log error-vs-queries PNG. queries==0 points are dropped (log axis);
     NaN errors (failed routes) are skipped."""
