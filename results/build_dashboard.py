@@ -69,6 +69,7 @@ def _section_html(track, figures_dir):
         regenerate_cognition()
 
     figs = [track["figure"]] + track.get("extra_figures", [])
+    captions = track.get("captions", {})
     imgs = []
     for fp in figs:
         data = collect(fp)
@@ -79,7 +80,9 @@ def _section_html(track, figures_dir):
         dst = os.path.join(figures_dir, os.path.basename(fp))
         if os.path.abspath(fp) != os.path.abspath(dst):
             shutil.copy(fp, dst)
-        imgs.append(f'<img src="{embed(data)}" alt="{title}"/>')
+        cap = captions.get(os.path.basename(fp))
+        cap_html = f'<figcaption>{_html.escape(cap)}</figcaption>' if cap else ""
+        imgs.append(f'<figure class="fig"><img src="{embed(data)}" alt="{title}"/>{cap_html}</figure>')
 
     if imgs:
         fig_block = '<div class="figs">' + "".join(imgs) + "</div>"
@@ -134,8 +137,10 @@ main{max-width:1100px;margin:0 auto;padding:24px 32px}
 section{background:#fff;border:1px solid var(--grid);border-radius:10px;padding:18px 22px;margin-bottom:22px}
 section h2{margin:0 0 6px;color:var(--q)}
 .claim{font-weight:bold;margin:0 0 12px}
-.figs{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-.figs img{max-width:100%;border:1px solid var(--grid);border-radius:6px}
+.figs{display:flex;flex-wrap:wrap;gap:18px;justify-content:center}
+.fig{margin:0;max-width:100%;display:flex;flex-direction:column;align-items:center}
+.fig img{max-width:100%;border:1px solid var(--grid);border-radius:6px}
+.fig figcaption{font-size:12.5px;color:#444;font-style:italic;max-width:640px;margin-top:6px;text-align:center}
 .missing{padding:24px;text-align:center;color:#a33;background:#fff5f5;border:1px dashed #e0a0a0;border-radius:6px}
 table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
 th,td{border:1px solid var(--grid);padding:6px 10px;text-align:left}

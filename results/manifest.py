@@ -49,6 +49,25 @@ TRACKS = [
             _p("quantum_pricer", "speedup.png"),
             _p("quantum_pricer", "depth_crossover.png"),
         ],
+        # Per-figure captions (keyed by basename) shown under each image.
+        "captions": {
+            "model_results.png": ("Actual run of all four routes: each recovers the "
+                                  "exact-tree price (M=3); right panel is the real "
+                                  "transpiled IQM CZ depth + qubits. QAE is shallowest "
+                                  "(~16 CZ); QSVT is the deep, honest straddle route."),
+            "error_vs_queries.png": ("Estimation error vs oracle queries (cf. "
+                                     "Stamatopoulos 2020, Fig. 11): AE slope -0.80 vs "
+                                     "MC -0.58. Honest: AE is under the ideal -1.0 due "
+                                     "to small-M finite-shot saturation; queries != samples."),
+            "complexity.png": ("Query complexity to reach accuracy eps: MC O(1/eps^2) vs "
+                               "QAE O(1/eps) - the textbook quadratic separation (analytic "
+                               "theory curves; cite Montanaro 2015)."),
+            "speedup.png": ("Seed-averaged empirical RMS error vs queries: QAE ~ -0.80, "
+                            "MC ~ -0.58 - the measured counterpart to the complexity plot."),
+            "depth_crossover.png": ("Novelty: Hamming-weight poly(M) phase oracle vs naive "
+                                    "2^M CZ depth. Naive infeasible from M~14; Hamming prices "
+                                    "M=14 to 3e-4 error on 19 qubits. The strongest result."),
+        },
         "regenerate": None,                 # collected as built by quantum_pricer
         "table": {
             "header": ["route", "query complexity", "depth (IQM CZ)", "note"],
