@@ -41,24 +41,35 @@ def _estimation_problem(p: float) -> EstimationProblem:
 _COST_SHOTS = 64
 
 
-def _shot_iqae(epsilon: float, shots: int) -> IterativeAmplitudeEstimation:
-    """IQAE wired to a finite-shot Sampler so it MEASURES oracle queries."""
-    sampler = Sampler(options={"shots": int(shots)})
+_DEFAULT_SEED = 7  # Fixed default so unseeded callers are deterministic.
+
+
+def _shot_iqae(
+    epsilon: float, shots: int, seed: int = _DEFAULT_SEED
+) -> IterativeAmplitudeEstimation:
+    """IQAE wired to a finite-shot Sampler so it MEASURES oracle queries.
+
+    The Sampler is seeded via the ``seed`` option so that shot-based outcomes
+    are deterministic for a given seed, making oracle-query counts reproducible.
+    """
+    sampler = Sampler(options={"shots": int(shots), "seed": int(seed)})
     return IterativeAmplitudeEstimation(
         epsilon_target=epsilon, alpha=0.05, sampler=sampler
     )
 
 
 def estimate_bernoulli(
-    p: float, backend=None, epsilon: float = 0.02, shots: int = 4096
+    p: float, backend=None, epsilon: float = 0.02, shots: int = 4096,
+    seed: int = _DEFAULT_SEED,
 ) -> float:
     """Return the shot-based IQAE point estimate of p.
 
     Uses a finite-shot Sampler (so the estimate carries real sampling noise).
     `backend` is accepted for API compatibility; when a finite shot budget is
     requested the V1 Sampler is the primitive that actually schedules shots.
+    ``seed`` is forwarded to the Sampler so results are reproducible.
     """
-    result = _shot_iqae(epsilon, shots).estimate(_estimation_problem(p))
+    result = _shot_iqae(epsilon, shots, seed=seed).estimate(_estimation_problem(p))
     return float(result.estimation)
 
 
@@ -83,7 +94,9 @@ def _measured_oracle_queries(result, shots: int) -> int:
     return int(math.ceil(1.0 / 0.02))
 
 
-def _qae_oracle_calls(p: float, epsilon: float, shots: int = 4096) -> int:
+def _qae_oracle_calls(
+    p: float, epsilon: float, shots: int = 4096, seed: int = _DEFAULT_SEED
+) -> int:
     """MEASURED IQAE oracle-query cost to reach accuracy `epsilon`.
 
     Runs a real finite-shot IQAE and returns the total measured number of
@@ -94,9 +107,10 @@ def _qae_oracle_calls(p: float, epsilon: float, shots: int = 4096) -> int:
     (the IQAE confidence-per-round hyperparameter); `shots` only raises it, never
     lowers it below the cap, so callers passing a large accuracy budget still get
     a query count in the asymptotic ~1/eps regime.
+    ``seed`` is forwarded to the Sampler so results are reproducible.
     """
     cost_shots = min(int(shots), _COST_SHOTS)
-    result = _shot_iqae(epsilon, cost_shots).estimate(_estimation_problem(p))
+    result = _shot_iqae(epsilon, cost_shots, seed=seed).estimate(_estimation_problem(p))
     return _measured_oracle_queries(result, cost_shots)
 
 
@@ -105,6 +119,7 @@ def scaling_curve(
     eps_values=(0.1, 0.05, 0.02, 0.01),
     shots: int = 4096,
     repeats: int = 2,
+    seed: int = _DEFAULT_SEED,
 ) -> dict:
     """Measure quantum oracle-query vs classical MC-sample scaling over eps.
 
@@ -113,10 +128,15 @@ def scaling_curve(
     the log-log fit), and compute the analytic MC sample count. Fit log-log
     slopes for both. Quantum scales ~1/eps (slope ~ -1), MC ~1/eps^2 (slope ~
     -2), so |q_slope| < |mc_slope|.
+    Each repeat uses a derived seed (seed + repeat_index) so the repeats are
+    independent but still deterministic.
     """
     eps_values = list(eps_values)
     q_queries = [
-        float(np.mean([_qae_oracle_calls(p, eps, shots=shots) for _ in range(repeats)]))
+        float(np.mean([
+            _qae_oracle_calls(p, eps, shots=shots, seed=seed + r)
+            for r in range(repeats)
+        ]))
         for eps in eps_values
     ]
     mc_samples = [mc_samples_to_eps(p=p, eps=eps) for eps in eps_values]
@@ -235,6 +255,7 @@ def price_european_call(
     t_maturity: float = 0.1,
     epsilon: float = 0.01,
     shots: int = 4096,
+    seed: int = _DEFAULT_SEED,
 ) -> dict:
     """Price a REAL European call E[max(S_T - K, 0)] via amplitude estimation.
 
@@ -246,18 +267,20 @@ def price_european_call(
     runtime Grover powers (same machinery as the Bernoulli path).
 
     Returns {"price", "oracle_queries", "n_qubits", "exact_payoff"}.
+    ``seed`` is forwarded to both IQAE Samplers for reproducibility.
     """
     app, problem, exact_payoff, total_qubits = _european_call_problem(
         num_uncertainty_qubits, strike, s0, vol, r, t_maturity
     )
     # Price estimate uses full shots for accuracy (unchanged).
-    result = _shot_iqae(epsilon, shots).estimate(problem)
+    result = _shot_iqae(epsilon, shots, seed=seed).estimate(problem)
     price = float(app.interpret(result))
     # Oracle-COUNT uses the capped per-round budget, matching the Bernoulli
     # convention: per-round shots are an IQAE confidence hyperparameter, not
     # the accuracy target; accuracy comes from the Grover schedule depth.
+    # Use seed+1 to keep price and count estimates independent but deterministic.
     cost_shots = min(int(shots), _COST_SHOTS)
-    result_cost = _shot_iqae(epsilon, cost_shots).estimate(problem)
+    result_cost = _shot_iqae(epsilon, cost_shots, seed=seed + 1).estimate(problem)
     oracle_queries = _measured_oracle_queries(result_cost, cost_shots)
     return {
         "price": price,
@@ -306,11 +329,12 @@ def _run_european_call(config: dict) -> AdvantageRecord:
     t_maturity = float(config.get("t_maturity", 0.1))
     eps = float(config.get("epsilon", 0.01))
     shots = int(config.get("shots", 4096))
+    seed = int(config.get("seed", _DEFAULT_SEED))
     candidate = config.get("candidate", "B")
 
     priced = price_european_call(
         num_uncertainty_qubits=num_uncertainty_qubits, strike=strike, s0=s0,
-        vol=vol, r=r, t_maturity=t_maturity, epsilon=eps, shots=shots,
+        vol=vol, r=r, t_maturity=t_maturity, epsilon=eps, shots=shots, seed=seed,
     )
     q_calls = int(priced["oracle_queries"])
 
@@ -364,8 +388,9 @@ def run(config: dict) -> AdvantageRecord:
     p = float(config.get("p", 0.3))
     eps = float(config.get("epsilon", 0.05))
     shots = int(config.get("shots", 4096))
+    seed = int(config.get("seed", _DEFAULT_SEED))
     candidate = config.get("candidate", "B")
-    q_calls = _qae_oracle_calls(p, eps, shots=shots)
+    q_calls = _qae_oracle_calls(p, eps, shots=shots, seed=seed)
     mc_calls = mc_samples_to_eps(p=p, eps=eps)
     if q_calls < mc_calls * 0.9:
         direction = "win"

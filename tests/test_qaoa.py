@@ -64,3 +64,14 @@ def test_q50_faithful_is_measured():
         "_q50_faithful returned False for n=4 k=2 reps=1; "
         "the QAOAAnsatz circuit should transpile on q50_fake"
     )
+
+
+def test_qaoa_is_reproducible():
+    """Same seed must yield the EXACT same chosen asset list."""
+    mu = np.array([0.12, 0.01, 0.10, 0.02])
+    cov = np.eye(4) * 0.0002
+    chosen1, _ = solve_portfolio(mu, cov, k=2, reps=2, seed=1)
+    chosen2, _ = solve_portfolio(mu, cov, k=2, reps=2, seed=1)
+    assert chosen1 == chosen2, (
+        f"QAOA results differ across runs with seed=1: {chosen1} vs {chosen2}"
+    )

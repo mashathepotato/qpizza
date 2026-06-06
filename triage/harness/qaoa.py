@@ -105,7 +105,7 @@ def solve_portfolio(mu, cov, k, risk=1.0, reps=1, seed=0, backend="local_aer"):
     qp = _build_program(mu, cov, k, risk)
 
     np.random.seed(seed)
-    sampler = Sampler()
+    sampler = Sampler(options={"seed": int(seed)})
     qaoa = QAOA(
         sampler=sampler,
         optimizer=COBYLA(maxiter=250),

@@ -67,3 +67,12 @@ def test_run_european_call_mode_returns_record():
     assert rec.metric_name == "samples_to_eps"
     assert rec.quantum_metric > 0
     assert "European" in rec.notes
+
+
+def test_qae_oracle_count_is_reproducible():
+    """Same seed must yield the EXACT same oracle-query count."""
+    count1 = _qae_oracle_calls(0.3, 0.02, seed=7)
+    count2 = _qae_oracle_calls(0.3, 0.02, seed=7)
+    assert count1 == count2, (
+        f"Oracle counts differ across runs with seed=7: {count1} vs {count2}"
+    )
