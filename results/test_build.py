@@ -35,3 +35,21 @@ def test_caption_and_provenance_do_not_raise():
     style.caption(fig, "a caption")
     style.provenance(fig, "src: test")
     plt.close(fig)
+
+
+def test_cognition_figure_regenerates(tmp_path):
+    import sys, os
+    qi = os.path.join(os.path.dirname(__file__), "..", "quantum_investor")
+    sys.path.insert(0, os.path.abspath(qi))
+    import importlib
+    import data as dataset            # noqa
+    import classical_model as cm      # noqa
+    import plot as plotter            # noqa
+    importlib.reload(plotter)
+    d = dataset.human_data()
+    obs = dataset.observed_order_effect(d)
+    qq = dataset.observed_qq(d)
+    c_pred = cm.predict(cm.fit(d))
+    out = tmp_path / "fig.png"
+    plotter.headline_figure(d, obs, qq, c_pred, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
