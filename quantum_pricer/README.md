@@ -66,7 +66,9 @@ The "money slide" (`complexity.png`, saved by the demo) shows:
   the Grover-power schedule saturates (all fine-ε targets report the same query
   count) — annotated honestly with note="qae_saturated"
 
-The empirical fitted slopes from the demo (Nokia live data, M=4):
+The fitted log-log slopes from the demo (Nokia live data, M=4) — these are the
+**analytic MC** and **theoretical QAE** complexity lines, not the (saturated)
+empirical QAE points:
 
     MC analytic slope  ~2.00  (theory = 2)
     QAE theory slope   ~1.00  (theory = 1)
@@ -113,4 +115,4 @@ sweep at M=4 to stay fast, but is priced at M=3 with an honest residual note).
 | `backends.py` | IQM basis gates, q50_fake noise model |
 | `run_hardware.py` | CLI for hardware/fake-hardware experiments |
 | `demo.py` | Runnable end-to-end benchmark (this demo) |
-| `tests/` | pytest suite (~29 tests) |
+| `tests/` | pytest suite (30 tests) |

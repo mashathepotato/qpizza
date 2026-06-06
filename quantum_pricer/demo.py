@@ -12,6 +12,11 @@ Three quantum/classical routes priced:
 """
 import os
 import sys
+import warnings
+
+# Qiskit 1.2 ships the V1 primitives (Sampler) that qiskit-algorithms 0.3.x uses;
+# silence the deprecation wall so the demo output stays readable. Functional only.
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # ── params ────────────────────────────────────────────────────────────────────
 # Use M=3 for pricing runs (fast, < 10 s on a laptop).
