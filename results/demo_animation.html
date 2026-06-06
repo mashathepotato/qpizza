@@ -29,6 +29,8 @@
   .panel{background:#141d3a;border:1px solid var(--line);border-radius:12px;padding:14px}
   .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
   svg{width:100%;height:auto;overflow:visible}
+  #cockpit h1{font-size:15px;margin:0 0 4px}
+  #cockpit .cap{font-size:12px}
 </style>
 </head>
 <body>
@@ -210,8 +212,9 @@ RENDERERS[3] = function(el){ // renderAct3
 function sotaRow(){ const R=DATA.results; if(!R) return null;
   return R.routes.find(rt=>rt.name.toLowerCase().includes('sota')); }
 function oursBest(){ const R=DATA.results; if(!R) return null;
-  return R.routes.filter(rt=>rt.group==='ours')
-          .sort((a,b)=>Math.abs(a.abs_err)-Math.abs(b.abs_err))[0]; }
+  const o = R.routes.filter(rt=>rt.group==='ours')
+            .sort((a,b)=>Math.abs(a.abs_err)-Math.abs(b.abs_err));
+  return o.length ? o[0] : null; }
 function hwBadge(){
   const hw = DATA.hw || {status:'pending', backend:'Q50'};
   const done = hw.status==='done';
@@ -225,10 +228,16 @@ function hwBadge(){
 // ---- Act 4: beat the textbook + real hardware ------------------------------
 RENDERERS[4] = function(el){ // renderAct4
   const sota=sotaRow(), ours=oursBest();
+  const oursErr = ours ? Math.abs(ours.abs_err) : null;
   let cmp = (sota&&ours)
-    ? 'Our best route abs-error <span class="num">'+Math.abs(ours.abs_err).toFixed(4)
-      +'</span> vs Qiskit-Finance oracle-QAE (SOTA) <span class="num">'
-      +Math.abs(sota.abs_err).toFixed(4)+'</span> — same ground truth, fewer assumptions.'
+    ? 'Our best route (' + ours.name.replace(/^OURS\s*[—-]\s*/i,'') + ') matches its '
+      + '<b>exact CRR-tree</b> ground truth to <span class="num">'
+      + (oursErr < 1e-8 ? 'machine precision (|err| &lt; 1e-8)' : oursErr.toFixed(4))
+      + '</span>, with shallow depth and free path loading. The textbook oracle-QAE SOTA sits '
+      + '<span class="num">' + Math.abs(sota.abs_err).toFixed(4) + '</span> from its '
+      + '<b>Black–Scholes-continuum</b> reference, dominated by its rescaling/linearisation step. '
+      + '<i>Note: the two use different reference prices (ours = exact tree, SOTA = BS continuum), '
+      + 'so this is a qualitative comparison, not a single-benchmark head-to-head.</i>'
     : 'results.json not loaded.';
   el.innerHTML =
     '<h1>Beat the textbook — and run it on real hardware</h1>'
