@@ -14,7 +14,10 @@ Shared reference for our team (2 CS + 2 physics). Goal: a creative, end-to-end,
   prior-art/novelty, what breaks, 36h scope, classical baseline, fallback. **A = top pick.**
 - [`creative-fusions.md`](./creative-fusions.md) — **wow-factor multi-paper fusions** for the
   hackathon: "Entanglement of Markets" (crash order parameter), "Noise Is the Market", "Shape
-  of a Crash", "Market Brain". Hero = Idea 1.
+  of a Crash", "Market Brain".
+- [`newton-feynman.md`](./newton-feynman.md) — **★ top hero candidate**: "The Madness of People
+  Is Quantum" — Newton's lament + Feynman's warning resolved via quantum cognition / quantum
+  decision theory. Real papers (PNAS, RSPB), buildable on 1-3 qubits, killer narrative.
 - [`ideas.md`](./ideas.md) — candidate directions + decision log.
 - [`resources.md`](./resources.md) — frameworks, papers, datasets, setup.
 
