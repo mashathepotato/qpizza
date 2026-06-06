@@ -92,9 +92,15 @@ justifies the quantum lens, not as the main contribution.
 ## 6. Current status (as of this writing)
 - ✅ **Pricing math fully derived** in [`../paper/main_V2.tex`](../paper/main_V2.tex): all three routes
   (Fourier / QAE / QSVT), a complexity table, and an honest-limitations section.
-- ✅ **Motivation demo BUILT and VERIFIED** in [`/quantum_investor`](../quantum_investor): quantum
-  fits **~131×** better than classical, classical order effect = 0, QQ-equality = 0, self-checks pass.
-  *(Data there is illustrative/synthetic — label it as such.)*
+- ✅ **Motivation demo BUILT, VERIFIED, runs on REAL data** in [`/quantum_investor`](../quantum_investor):
+  default dataset is the canonical Gallup 1997 Clinton/Gore poll (**Wang et al., PNAS 2014, Table 1**;
+  ~1000 adults, both orders). Real order effect **+0.095**, classical order effect **0** (structural),
+  **observed QQ-equality q = −0.003** (matches PNAS), quantum QQ-equality = 0 for all params, 8 self-checks pass.
+  *Honest caveat:* a single-qubit (non-degenerate) model reproduces the *structure* (order effect + the
+  parameter-free QQ-equality) but does **not** out-fit classical on the full joints (Boyer-Kassem 2015 — this
+  experiment needs a degenerate/higher-dim model). The win is the **parameter-free QQ-equality on real humans**,
+  not a fit contest; the old "~131×" number was a synthetic-data artifact and is removed.
+  `data.py` also ships `finance_survey_data()` to drop in a finance-framed ~30-person attendee survey.
 - ⏳ **The pricer code is the build target** (not yet implemented). See §8.
 
 ## 7. How to run the code

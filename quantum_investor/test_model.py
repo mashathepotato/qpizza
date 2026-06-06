@@ -44,6 +44,27 @@ def test_probabilities_normalised():
         assert abs(s - 1.0) < 1e-9
 
 
+def test_real_data_is_normalised():
+    # Each measurement order of the real (Clinton/Gore, PNAS 2014) data sums to 1.
+    data = dataset.human_data()
+    for order in ("AB", "BA"):
+        assert abs(sum(data[order].values()) - 1.0) < 2e-4
+
+
+def test_real_data_satisfies_qq_equality():
+    # The headline empirical claim: real human data lands on q ≈ 0.
+    # PNAS 2014 reports q = -0.003 for this Gallup Clinton/Gore poll.
+    data = dataset.human_data()
+    assert abs(dataset.observed_qq(data)) < 0.01
+    assert abs(dataset.observed_qq(data) - (-0.003)) < 0.001
+
+
+def test_real_data_has_a_real_order_effect():
+    # And it is a genuine, non-trivial order effect (something classical can't make).
+    data = dataset.human_data()
+    assert dataset.observed_order_effect(data) > 0.03
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

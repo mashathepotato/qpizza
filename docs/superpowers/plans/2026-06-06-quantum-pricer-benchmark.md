@@ -53,10 +53,10 @@
 
 `quantum_pricer/requirements.txt`:
 ```
-qiskit>=1.0
+qiskit>=1.0,<1.3
 qiskit-aer>=0.14
-qiskit-algorithms>=0.3
-qiskit-iqm>=15.0
+qiskit-algorithms>=0.3,<0.4   # 0.4 breaks on qiskit<1.3 (evolved_operator_ansatz)
+qiskit-iqm>=15.0,<18.0        # 18.x refuses to import (wants iqm-client[qiskit])
 pyqsp>=0.1.6
 yfinance>=0.2
 numpy>=1.26
@@ -64,6 +64,11 @@ scipy>=1.11
 matplotlib>=3.8
 pytest>=8.0
 ```
+
+> **Verified working set (Python 3.12):** qiskit 1.2.4, qiskit-aer 0.15.1,
+> qiskit-algorithms 0.3.1, qiskit-iqm 17.8, pyqsp 0.2.0. A `.venv` is already
+> created in the worktree with these installed — run all commands with `.venv/bin/python`
+> (or `.venv/bin/python -m pytest`).
 
 - [ ] **Step 2: Create the backend registry** (adapted from the triage-lab worktree)
 
@@ -547,7 +552,7 @@ ancillas are appended ABOVE the path register (higher qubit index).
 """
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import Diagonal
+from qiskit.circuit.library import Diagonal, UCRYGate
 
 
 def path_loader(angles):
@@ -600,8 +605,10 @@ def payoff_amplitude_circuit(angles, payoff, Cmax):
     qc = QuantumCircuit(M + 1, name="A")
     qc.compose(path_loader(angles), qubits=range(M), inplace=True)
     target = M
-    # qc.ucry expects angles ordered by control state integer (q0 = LSB) -> matches our x.
-    qc.ucry(list(ry_angles), list(range(M)), target)
+    # Qiskit 1.x: qc.ucry was removed. Use UCRYGate, appended as [target, *controls].
+    # (Verified: append order [target, ctrl...] applies angle[j] when controls are in
+    # state j with ctrl0 as LSB -> matches our path integer x. The oracle test pins this.)
+    qc.append(UCRYGate(list(ry_angles)), [target, *range(M)])
     return qc, target
 ```
 
@@ -913,6 +920,10 @@ def qsp_phases(coeffs):
     """Convert target polynomial to QSP phase angles via pyqsp.
     Falls back to the direct angle solve if pyqsp signature differs."""
     from pyqsp.angle_sequence import QuantumSignalProcessingPhases
+    # pyqsp 0.2.0 signature: QuantumSignalProcessingPhases(poly, eps, suc,
+    #   signal_operator='Wx', measurement, tolerance, method='laurent',
+    #   chebyshev_basis=False). `poly` may need to be a numpy.polynomial.Polynomial;
+    #   if passing a raw coeff array errors, wrap as np.polynomial.Polynomial(coeffs).
     # pyqsp expects a polynomial bounded by 1 on [-1,1]; normalise.
     scale = 1.0 / max(1.0, np.max(np.abs(eval_poly(coeffs, np.linspace(-1, 1, 400)))))
     phis = QuantumSignalProcessingPhases(coeffs * scale, signal_operator="Wx")
