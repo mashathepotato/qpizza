@@ -1,14 +1,15 @@
 """Frozen-expert ensembles: classical vs quantum, two averaged prediction lines.
 
-Mixture-of-experts / frozen-model style: each neural model is trained
+Mixture-of-experts / frozen-model style: each member is trained (or fit)
 independently then frozen; the ensemble prediction is the uniform mean of its
-experts' per-day probabilities (no learned gate). We average the four CLASSICAL
-neural experts (RNN, GRU, LSTM, Transformer) into one line and the four QUANTUM
-neural experts (QRNN, QGRU, QLSTM, QTransformer) into another, and overlay both
-against the true next-day vol-event days on the held-out split.
+members' per-day scores (no learned gate). To mix members with different output
+scales (neural sigmoids in [0,1] and GARCH's variance forecast), every member's
+held-out score is min-max normalized to [0,1] before averaging.
 
-(Statistical baselines -- GARCH/AR/persistence/logistic -- are intentionally
-excluded: they are not neural "experts". Swap them in if you want them counted.)
+  CLASSICAL line = RNN, GRU, LSTM, Transformer  +  GARCH(1,1)
+  QUANTUM line   = QRNN, QGRU, QLSTM, QTransformer
+
+Both overlaid against the true next-day vol-event days on the held-out split.
 
 Run:  ./quantum_pricer/.venv/bin/python experiments/quantum_rnn/ensemble_plot.py
 Saves ensemble_predictions.png next to this script.
@@ -28,6 +29,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
 import seqdata as sd
 import classical_rnn as cr
+import ar_baseline as ar
 from quantum_rnn import QRNN
 from quantum_gru import QGRU
 from quantum_lstm import QLSTM
@@ -43,7 +45,7 @@ L = 10
 EPOCHS = 150
 LR = 0.05
 WD = 1e-2
-SEEDS = range(5)          # each expert seed-averaged (deep ensemble) for honest, stable lines
+SEEDS = range(5)          # each neural expert seed-averaged (deep ensemble) for stable lines
 OUT = os.path.join(HERE, "ensemble_predictions.png")
 
 CLASSICAL = [("RNN", cr.RNNClassifier), ("GRU", cr.GRUClassifier),
@@ -52,21 +54,31 @@ QUANTUM = [("QRNN", QRNN), ("QGRU", QGRU), ("QLSTM", QLSTM),
            ("QTransformer", QuantumTransformer)]
 
 
-def _expert_probs(models, X, y, tr, te):
-    """Each expert = its held-out prob averaged over SEEDS (a deep ensemble, robust to
-    init). Returns (mean held-out prob over the experts, per-expert seed-averaged AUCs)."""
-    probs, aucs = [], {}
+def nrm(x):
+    x = np.asarray(x, float)
+    lo, hi = np.nanmin(x), np.nanmax(x)
+    return (x - lo) / (hi - lo) if hi > lo else np.zeros_like(x)
+
+
+def _neural_arrays(models, X, y, tr, te):
+    """Return {name: seed-averaged held-out score} and {name: AUC} for each expert."""
+    arrs, aucs = {}, {}
     for name, Cls in models:
-        seed_probs = []
+        seed_scores = []
         for s in SEEDS:
             m = Cls(seed=s)
             cr.train(m, X[tr], y[tr], epochs=EPOCHS, lr=LR, seed=s, weight_decay=WD)
-            seed_probs.append(cr.scores(m, X)[te])
-        ep = np.mean(np.vstack(seed_probs), axis=0)     # expert's seed-averaged prediction
-        probs.append(ep)
-        aucs[name] = sd.roc_auc(ep, y[te])
+            seed_scores.append(cr.scores(m, X)[te])
+        arrs[name] = np.mean(np.vstack(seed_scores), axis=0)
+        aucs[name] = sd.roc_auc(arrs[name], y[te])
         print(f"  {name:12s} AUC={aucs[name]:.3f}")
-    return np.mean(np.vstack(probs), axis=0), aucs
+    return arrs, aucs
+
+
+def _ensemble(arrs, y_te):
+    """Uniform mean of each member's min-max-normalized held-out score."""
+    ens = np.mean(np.vstack([nrm(v) for v in arrs.values()]), axis=0)
+    return ens, sd.roc_auc(ens, y_te)
 
 
 def main():
@@ -82,16 +94,23 @@ def main():
     y_te = y[te]
 
     print("classical experts:")
-    c_ens, c_aucs = _expert_probs(CLASSICAL, X, y, tr, te)
+    c_arrs, c_aucs = _neural_arrays(CLASSICAL, X, y, tr, te)
+    # fold GARCH(1,1) into the classical average (deterministic; not seed-dependent)
+    garch = ar.garch_forecast(R, fit_end=L + n_train)[L:L + n][te]
+    c_arrs["GARCH(1,1)"] = garch
+    c_aucs["GARCH(1,1)"] = sd.roc_auc(garch, y_te)
+    print(f"  {'GARCH(1,1)':12s} AUC={c_aucs['GARCH(1,1)']:.3f}")
     print("quantum experts:")
-    q_ens, q_aucs = _expert_probs(QUANTUM, X, y, tr, te)
+    q_arrs, q_aucs = _neural_arrays(QUANTUM, X, y, tr, te)
 
-    c_auc = sd.roc_auc(c_ens, y_te)
-    q_auc = sd.roc_auc(q_ens, y_te)
+    c_ens, c_auc = _ensemble(c_arrs, y_te)
+    q_ens, q_auc = _ensemble(q_arrs, y_te)
     print(f"\nprovenance        : {provenance}")
     print(f"held-out vol events: {int(y_te.sum())}/{len(y_te)}")
-    print(f"CLASSICAL ensemble AUC = {c_auc:.3f}  (experts mean {np.mean(list(c_aucs.values())):.3f})")
-    print(f"QUANTUM   ensemble AUC = {q_auc:.3f}  (experts mean {np.mean(list(q_aucs.values())):.3f})")
+    print(f"CLASSICAL ensemble (4 NN + GARCH) AUC = {c_auc:.3f}  "
+          f"(members mean {np.mean(list(c_aucs.values())):.3f})")
+    print(f"QUANTUM   ensemble (4 NN)          AUC = {q_auc:.3f}  "
+          f"(members mean {np.mean(list(q_aucs.values())):.3f})")
 
     _plot(day, y_te, c_ens, q_ens, c_auc, q_auc, provenance)
     print(f"saved {OUT}")
@@ -107,21 +126,22 @@ def _plot(days, y_true, c_ens, q_ens, c_auc, q_auc, provenance):
                        label="true vol event" if first else None)
             first = False
     ax.plot(days, c_ens, color=c_col, lw=2.0,
-            label=f"classical experts (mean of 4)  AUC {c_auc:.2f}")
+            label=f"classical: 4 NN + GARCH  AUC {c_auc:.2f}")
     ax.plot(days, q_ens, color=q_col, lw=2.0,
-            label=f"quantum experts (mean of 4)  AUC {q_auc:.2f}")
+            label=f"quantum: 4 NN  AUC {q_auc:.2f}")
     ax.set_xlim(days[0], days[-1])
+    ax.set_ylim(-0.03, 1.03)
     ax.set_xlabel("held-out trading day")
-    ax.set_ylabel("ensemble P(next-day vol event)")
-    ax.set_title("Frozen-expert ensembles — classical vs quantum mean prediction "
+    ax.set_ylabel("ensemble score (mean of normalized member predictions)")
+    ax.set_title("Frozen-expert ensembles — classical (incl. GARCH) vs quantum "
                  "(NOKIA.HE, held-out)")
     ax.legend(loc="upper left", fontsize=9.5)
-    cap = ("Each of 4 classical (RNN/GRU/LSTM/Transformer) and 4 quantum "
-           "(QRNN/QGRU/QLSTM/QTransformer) neural experts trained over 5 seeds on the calm "
-           "split, frozen, then averaged uniformly (no learned gate). Lines = mean expert "
-           "P(next-day top-decile |return|); shaded = true vol-event days. The two ensembles "
-           "track the same volatility-clustering bumps and give near-identical held-out AUC "
-           f"({c_auc:.2f} vs {q_auc:.2f}) -- averaging confirms no classical/quantum separation.")
+    cap = ("Classical = RNN/GRU/LSTM/Transformer (each seed-averaged over 5 seeds) + "
+           "GARCH(1,1); quantum = QRNN/QGRU/QLSTM/QTransformer. Each member's held-out "
+           "score min-max normalized to [0,1], then averaged uniformly (no learned gate). "
+           "Shaded = true top-decile next-day |return| days. The two ensembles track the "
+           f"same volatility-clustering bumps with near-identical AUC ({c_auc:.2f} vs "
+           f"{q_auc:.2f}) -- adding GARCH does not separate classical from quantum.")
     if _HAVE_STYLE:
         style.caption(fig, cap)
         style.provenance(fig, provenance)

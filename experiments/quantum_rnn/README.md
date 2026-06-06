@@ -76,10 +76,11 @@ before believing a surprising win) is part of the result.
 - `run_rnn_bench.py` — the benchmark → `rnn_benchmark.png`.
 - `predictions_plot.py` — every model's per-day held-out prediction overlaid vs the
   true vol-event days → `predictions_per_day.png` (v1 static; animation is future work).
-- `ensemble_plot.py` — frozen-expert ensembles: the 4 classical vs 4 quantum neural
-  experts (each seed-averaged) uniformly averaged into two prediction lines →
-  `ensemble_predictions.png`. Classical 0.63 vs quantum 0.65 held-out AUC — a near-tie
-  (single-threaded for reproducibility; the gap is within the documented noise band).
+- `ensemble_plot.py` — frozen-expert ensembles: classical (4 NN + GARCH(1,1)) vs
+  quantum (4 NN). Each member's held-out score is min-max normalized then uniformly
+  averaged (no learned gate) into two prediction lines → `ensemble_predictions.png`.
+  Classical 0.65 vs quantum 0.65 held-out AUC — a dead heat (single-threaded for
+  reproducibility; folding in GARCH lifts classical from 0.63 to match quantum).
 - `test_*.py` — 41 unit tests (harness, every recurrent + transformer cell, baselines).
 - `requirements.txt` — `torch`, `pennylane`, `arch`.
 
