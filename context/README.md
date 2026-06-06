@@ -11,6 +11,8 @@ Shared reference for our team (2 CS + 2 physics). Goal: a creative, end-to-end,
 > already runs; the pricer is the build target. Files below are the research trail that led here.
 
 ## Files
+- [`RUNNING.md`](./RUNNING.md) — **how to actually run & integrate the system + repo folder map.**
+  Start here if you just want the code running (entry point for a fresh session).
 - [`challenge.md`](./challenge.md) — the official challenge, judging criteria, prizes, stakes.
 - [`strategy.md`](./strategy.md) — how we win: scoring, the originality trap, team roles, demo
   must-haves.
