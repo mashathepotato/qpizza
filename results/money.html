@@ -349,6 +349,21 @@ tr.sota .errbar .fill{background:linear-gradient(90deg,#a23a5c,var(--mag))}
         <b>57 344 oracle calls at ε = 0.01 → €2.7756 ± 0.0003</b> (table below).</div>
     </div>
 
+    <p class="lede reveal" style="margin-top:64px">We measured the scaling directly: five seeds, averaged,
+      on the <span class="num">M = 5</span> tree (ground truth <span class="num">€2.7060</span>).
+      Monte Carlo's error descends at slope <strong>−0.60</strong>, our QAE at <strong>−0.84</strong> —
+      a steeper slope means more accuracy per additional query.</p>
+
+    <div class="plate panel reveal d1">
+      <div class="panel-cap"><span>the receipt — measured convergence, error vs queries · <span class="hl-nok">NOKIA-CALIBRATED</span> M = 5 tree</span><span class="r">SIMULATED BENCHMARK · 5-seed RMS · hover the points</span></div>
+      <svg class="chart" id="raceChart" viewBox="0 0 1000 500"></svg>
+      <div class="foot"><b>Note:</b> x counts oracle queries / path samples — resource spent, not wall-clock.
+        Measured slopes −0.60 / −0.84; asymptotic theory −0.5 / −1.0 (CLT vs π/2ε).
+        Quantum SoTA shown at its tuned rescaling c = 0.10 (bias floor pushed below ε; from qsvt_analysis.json) —
+        at the textbook c = 0.25 a fixed O(c²) linearisation bias (≈€0.18) makes it plateau near €0.21 instead.
+        Our loading is exact, so we have no such floor by construction.</div>
+    </div>
+
     <div class="board reveal d1">
       <table>
         <thead><tr>
@@ -394,21 +409,6 @@ tr.sota .errbar .fill{background:linear-gradient(90deg,#a23a5c,var(--mag))}
       dominated by its rescaling-linearisation bias, not the amplitude estimation. Fourier is statevector-exact; QAE beats its
       ε = 0.01 target; QSVT carries its honest straddle-degree floor. <b>All numbers from real runs.</b></p>
     <script>addEventListener('load',()=>setTimeout(()=>document.querySelectorAll('.board .fill').forEach(f=>{f.style.width=(f.dataset.w||0)+'%';}),300));</script>
-
-    <p class="lede reveal" style="margin-top:64px">We measured the scaling directly: five seeds, averaged,
-      on the <span class="num">M = 5</span> tree (ground truth <span class="num">€2.7060</span>).
-      Monte Carlo's error descends at slope <strong>−0.60</strong>, our QAE at <strong>−0.84</strong> —
-      a steeper slope means more accuracy per additional query.</p>
-
-    <div class="plate panel reveal d1">
-      <div class="panel-cap"><span>the receipt — measured convergence, error vs queries · <span class="hl-nok">NOKIA-CALIBRATED</span> M = 5 tree</span><span class="r">SIMULATED BENCHMARK · 5-seed RMS · hover the points</span></div>
-      <svg class="chart" id="raceChart" viewBox="0 0 1000 500"></svg>
-      <div class="foot"><b>Note:</b> x counts oracle queries / path samples — resource spent, not wall-clock.
-        Measured slopes −0.60 / −0.84; asymptotic theory −0.5 / −1.0 (CLT vs π/2ε).
-        Quantum SoTA shown at its tuned rescaling c = 0.10 (bias floor pushed below ε; from qsvt_analysis.json) —
-        at the textbook c = 0.25 a fixed O(c²) linearisation bias (≈€0.18) makes it plateau near €0.21 instead.
-        Our loading is exact, so we have no such floor by construction.</div>
-    </div>
 
     <div class="plate panel reveal d1">
       <div class="panel-cap"><span>asian pricing circuit on <b>real hardware</b> — IBM ibm_boston × IQM Q50, by circuit depth</span><span class="r">reference-paper calibration (not NOKIA) · QNDM characteristic-function circuit</span></div>
