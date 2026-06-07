@@ -1,0 +1,6 @@
+numpy
+matplotlib
+qiskit
+qiskit-ibm-runtime
+iqm-client
+iqm-qiskit

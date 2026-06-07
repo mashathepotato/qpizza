@@ -1,0 +1,34 @@
+nohup: ignoring input
+qiskit_runtime_service._discover_account:WARNING:2026-06-07 02:07:32,149: Loading account with the given token. A saved account will not be used.
+Connected to ibm_boston  (156 qubits)
+
+======================================================================
+  TRIVIAL Asian QNDM (3 qubits)  (M=2)
+======================================================================
+exact Asian price (enumeration) = 0.482042
+G_noiseless(l0=0.5) = +0.876253 +0.037384j  (analytic +0.876253 +0.037384j)
+noiseless price (COS)  = 0.482041
+[ibm_boston] transpiled depths: X=37 Y=34  -> submitting (shots=8192)
+[ibm_boston] job id = d8ibcle6983c73druk9g  (waiting for result...)
+[ibm_boston] G_hw = +0.867188 +0.048340j
+[ibm_boston] |G_hw - G_noiseless| = 0.0142
+
+======================================================================
+  FULL Asian QNDM (6 qubits)  (M=3)
+======================================================================
+exact Asian price (enumeration) = 0.397795
+G_noiseless(l0=0.5) = +0.896564 +0.032880j  (analytic +0.896564 +0.032880j)
+noiseless price (COS)  = 0.398023
+[ibm_boston] transpiled depths: X=506 Y=507  -> submitting (shots=8192)
+[ibm_boston] job id = d8ibcrs2upec739m0sl0  (waiting for result...)
+[ibm_boston] G_hw = +0.672363 +0.036377j
+[ibm_boston] |G_hw - G_noiseless| = 0.2242
+Saved asian_ibm_G_M2.png
+Saved asian_ibm_G_M3.png
+
+======================================================================
+SUMMARY
+======================================================================
+TRIVIAL Asian QNDM (3 qubits)     exact=0.48204  G_nl=+0.8763+0.0374j  G_hw=+0.8672+0.0483j  |dG|=0.0142
+FULL Asian QNDM (6 qubits)        exact=0.39779  G_nl=+0.8966+0.0329j  G_hw=+0.6724+0.0364j  |dG|=0.2242
+Done.

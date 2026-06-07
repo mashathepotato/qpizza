@@ -1,0 +1,368 @@
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{physics}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{tocbibind}
+\usepackage[backend=biber,sorting=none]{biblatex}
+\addbibresource{bibliography.bib}
+\usepackage{hyperref}
+\usepackage{quantikz}
+\usepackage{booktabs}
+\usepackage{abstract}
+
+\newcommand{\Id}{\mathbb{I}}
+\newcommand{\deltat}{\Delta t}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Q}{\mathbb{Q}}
+\def\myvdots{\ \vdots\ }
+\newtheorem{theorem}{Proposition}
+\newtheorem{remark}{Remark}
+
+\title{\textbf{Quantum pricing of European and Asian options\\ via a time-dependent binomial tree:\\ phase encoding, amplitude estimation, and a single-run QSVT route}}
+\author{Dario Melegari}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+We present an explicit, gate-level quantum algorithm for pricing European and path-dependent (arithmetic Asian) options on a time-dependent Cox--Ross--Rubinstein (CRR) binomial tree. The key observation is that, under the binomial dynamics, the law of the price paths is a \emph{product distribution} and is therefore loaded \emph{exactly} by one single-qubit rotation per time step, removing the distribution-loading oracle that dominates the cost of oracle-based quantum option pricing~\cite{Stamatopoulos_2020,chakrabarti2021threshold}. On top of this loading we develop three price-extraction routes that share the same state preparation: (i) a quantum non-demolition measurement (QNDM) route that encodes the payoff-relevant quantity in the \emph{phase} of a single ancilla and reconstructs the characteristic function; (ii) a standard amplitude-estimation route that encodes the payoff in an \emph{amplitude}; and (iii) a single-run route that turns the QNDM circuit into a \emph{phase oracle} and applies quantum eigenvalue/singular-value transformation (QSVT)~\cite{gilyen2019qsvt,dong2022qetu,martyn2021grand} to obtain the price in one amplitude estimation, with no parameter sweep. We give a resource analysis showing the optimal $O(1/\varepsilon)$ amplitude-estimation scaling~\cite{brassard2002amplitude,montanaro2015quantum} together with linear qubit count in the number of steps and no price-precision register, and we delimit precisely the regime --- high-accuracy, path-dependent, time-dependent pricing --- in which the method improves on the state of the art.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%=========================================================
+\section{Introduction}
+%=========================================================
+
+Derivative pricing is one of the most studied applications of quantum computing in finance~\cite{rebentrost2018finance,woerner2019riskanalysis,Stamatopoulos_2020,chakrabarti2021threshold}. The fair value of an option is a risk-neutral expectation of a discounted payoff~\cite{hull2018options,blackscholes1973}; when no closed form is available it is estimated by Monte Carlo (MC), whose statistical error decays only as $O(1/\sqrt{N})$ in the number of samples $N$~\cite{glasserman2004monte}. Quantum amplitude estimation (QAE)~\cite{brassard2002amplitude} reduces the number of queries needed for additive error $\varepsilon$ from $O(1/\varepsilon^2)$ to $O(1/\varepsilon)$~\cite{montanaro2015quantum,suzuki2020amplitude,herbert2022qmci}, the basis of the quantum speed-up for pricing and risk analysis~\cite{Stamatopoulos_2020,woerner2019riskanalysis,egger2020credit}.
+
+A quantum pricing pipeline has two parts: \emph{(a)} loading the probability distribution of the underlying into a quantum register, and \emph{(b)} computing the expected payoff via QAE. In the oracle-based framework~\cite{Stamatopoulos_2020} part (b) is standard, while part (a) is left to an abstract loading unitary $\mathcal{P}$; in practice loading a generic distribution is the bottleneck, requiring efficiently integrable densities (Grover--Rudolph)~\cite{grover2002creating} or approximate, hard-to-train variational loaders. Resource estimates indicate that the loading and the arithmetic, not the QAE itself, set the threshold for practical quantum advantage~\cite{chakrabarti2021threshold}.
+
+\paragraph{Contributions.} We work directly with the (time-dependent) binomial model~\cite{COX1979229,Kim_2017}, whose discrete dynamics makes the path measure a product distribution. This yields:
+\begin{enumerate}
+    \item \textbf{Exact, oracle-free loading}: the full path superposition is prepared by $M$ single-qubit $R_Y$ rotations, one per step, with no approximation (Sec.~\ref{sec_loading}).
+    \item \textbf{A QNDM phase-encoding route}~\cite{espa_2023} that stores the payoff quantity in the phase of a single ancilla and recovers the price from the characteristic function (Sec.~\ref{sec_qndm}).
+    \item \textbf{An amplitude-estimation route} that computes the payoff reversibly and reads it in one QAE (Sec.~\ref{sec_qae}).
+    \item \textbf{A single-run QSVT route} that keeps the QNDM phase oracle and applies a quantum eigenvalue transformation~\cite{gilyen2019qsvt,dong2022qetu} to extract the price with no parameter sweep (Sec.~\ref{sec_qsvt}).
+    \item \textbf{A precise resource comparison} with classical MC and with oracle-based QAE~\cite{Stamatopoulos_2020}, including an honest delimitation of the advantage (Sec.~\ref{sec_scaling}).
+\end{enumerate}
+European and Asian options are treated uniformly: they differ only in the scalar functional of the path whose expectation is estimated.
+
+%=========================================================
+\section{Background}
+%=========================================================
+
+\subsection{Options and risk-neutral pricing}
+
+Let $S_t$ be the price of the underlying, $K$ the strike, $T$ the maturity and $r$ the risk-free rate. A European call pays $\max(S_T-K,0)$ at $T$; an arithmetic Asian call pays $\max(\bar S-K,0)$ with $\bar S=\frac1M\sum_{t=1}^M S_{t}$ the time average~\cite{hull2018options}. Under the risk-neutral measure $\Q$ the fair value at $t=0$ is the discounted expectation~\cite{blackscholes1973,glasserman2004monte}
+\begin{equation}\label{eq_price}
+C = e^{-rT}\,\E_{\Q}\!\big[\max(f-K,0)\big],
+\qquad
+f = \begin{cases} S_T & \text{(European)},\\[2pt] \bar S & \text{(Asian)}.\end{cases}
+\end{equation}
+Everything below estimates the single number $\E_\Q[\max(f-K,0)]$; the only European/Asian difference is the functional $f$.
+
+\subsection{Time-dependent binomial (CRR) model}\label{sec_crr}
+
+We discretise the risk-neutral dynamics $dS_t=rS_t\,dt+\sigma S_t\,dW_t$ on a lattice with $M$ steps, $\deltat=T/M$~\cite{COX1979229}. At step $i$ the price moves up by $u_i$ or down by $d_i$,
+\begin{equation}
+u_i=e^{(r_i-\frac12\sigma_i^2)\deltat+\sigma_i\sqrt{\deltat}},\quad
+d_i=e^{(r_i-\frac12\sigma_i^2)\deltat-\sigma_i\sqrt{\deltat}},
+\end{equation}
+and the risk-neutral up-probability is fixed by the martingale (no-arbitrage) condition
+\begin{equation}\label{eq_q}
+q_i=\frac{e^{r_i\deltat}-d_i}{u_i-d_i}\in(0,1).
+\end{equation}
+Time-dependent coefficients $r_i,\sigma_i$ are admissible step by step~\cite{Kim_2017}. A path is a bit-string $x\in\{0,1\}^M$ ($x_i=1$ up), with $S_t(x)=S_0\prod_{j\le t}(d_j+(u_j-d_j)x_j)$. As $M\to\infty$ the model converges to Black--Scholes with an $O(1/M)$ bias common to all lattice schemes.
+
+\subsection{Quantum amplitude estimation}
+
+Given a unitary $\mathcal{A}$ with $\mathcal{A}\ket{0}=\sqrt{1-a}\ket{\Psi_0}\ket{0}+\sqrt{a}\ket{\Psi_1}\ket{1}$, QAE returns an estimate $\tilde a$ of $a=\Pr[\text{last qubit}=1]$ to additive error $\varepsilon$ using $O(1/\varepsilon)$ calls to $\mathcal{A}$~\cite{brassard2002amplitude}, a quadratic improvement over the $O(1/\varepsilon^2)$ of classical sampling~\cite{montanaro2015quantum}. Phase-estimation-free variants exist~\cite{suzuki2020amplitude,herbert2022qmci} and are directly compatible with all routes below.
+
+%=========================================================
+\section{Exact loading of the path distribution}\label{sec_loading}
+%=========================================================
+
+Because the binomial increments are independent across steps, the path law factorises,
+\begin{equation}\label{eq_product}
+p(x)=\prod_{i=1}^{M} q_i^{\,x_i}(1-q_i)^{1-x_i},
+\end{equation}
+a \emph{product distribution}. It is loaded \emph{exactly} by $M$ single-qubit rotations: on qubit $i$ apply $R_Y(\theta_i)$ with $\theta_i=2\arcsin\sqrt{q_i}$, giving
+\begin{equation}\label{eq_psi0}
+\ket{\psi_0}=\bigotimes_{i=1}^{M}\!\big(\sqrt{1-q_i}\ket{0}+\sqrt{q_i}\ket{1}\big)=\sum_{x\in\{0,1\}^M}\!\sqrt{p(x)}\,\ket{x}.
+\end{equation}
+\begin{theorem}\label{prop_load}
+The state \eqref{eq_psi0} is prepared exactly with $M$ single-qubit gates and depth $1$, with no integrability assumption on the density and no approximation error.
+\end{theorem}
+This is the structural advantage over generic loaders~\cite{grover2002creating,Stamatopoulos_2020}: the step that dominates oracle-based pipelines~\cite{chakrabarti2021threshold} is here exact and trivial. The nonlinearity of the payoff is handled \emph{afterwards}.
+
+%=========================================================
+\section{Route I --- QNDM phase encoding and the characteristic function}\label{sec_qndm}
+%=========================================================
+
+We add one ancilla (the \emph{detector} $d$) in $\ket{+}$ and encode the payoff quantity $f(x)$ in its relative phase~\cite{espa_2023}. A sequence of diagonal operators $U_1,\dots,U_M$,
+\begin{equation}\label{eq_Ut}
+U_t=\sum_{x}\ket{x}\!\bra{x}\otimes\big(\ket{0}\!\bra{0}_d+e^{i\lambda\phi_t(x)}\ket{1}\!\bra{1}_d\big),
+\qquad
+\phi_t(x)=\begin{cases}\delta_{t,M}\,S_T(x) & \text{(European)},\\[2pt] S_t(x)/M & \text{(Asian)},\end{cases}
+\end{equation}
+accumulates $e^{i\lambda f(x)}$ on the detector; absorbing the strike with an $R_Z(-2\lambda K)$ gives
+\begin{equation}\label{eq_psi3}
+\ket{\psi_3}=\frac{1}{\sqrt2}\sum_x\sqrt{p(x)}\,\ket{x}\big(\ket{0}_d+e^{i\lambda(f(x)-K)}\ket{1}_d\big).
+\end{equation}
+On a recombining tree $S_t$ depends only on the running Hamming weight $w_t=\sum_{j\le t}x_j$, $S_t=S_0u^{w_t}d^{t-w_t}$, so each $U_t$ is realised with an $O(\log M)$-qubit Hamming-weight register and a weight-controlled diagonal phase, then uncomputed --- \emph{no} $n_p$-qubit register storing $f$. The explicit gate-level construction of the Hamming-weight register and of the QNDM mean operator is given in Appendices~\ref{app_hw} and~\ref{app_qndm}.
+
+A Hadamard on the detector turns the phase into a probability,
+\begin{equation}\label{eq_charfn}
+\Pr[d=0]=\tfrac12\big(1+\mathrm{Re}\,G(\lambda)\big),\quad G(\lambda)=\E_\Q\!\big[e^{i\lambda(f-K)}\big],
+\end{equation}
+and the $Y$-basis gives $\mathrm{Im}\,G$. Sweeping $\lambda$ and Fourier-inverting (Gil--Pelaez) yields $\E[\max(f-K,0)]$ and hence~\eqref{eq_price}. This route is qubit-light (one ancilla, no price register) but requires a $\lambda$-grid.
+
+%=========================================================
+\section{Route II --- amplitude estimation of the payoff}\label{sec_qae}
+%=========================================================
+
+To obtain the price in a single estimation we encode the payoff in an amplitude~\cite{Stamatopoulos_2020,woerner2019riskanalysis}. After loading \eqref{eq_psi0}, a reversible block $\mathcal{F}$ computes $\Delta(x)=\max(f(x)-K,0)$ into a work register; a controlled rotation $R_Y(2\arcsin\sqrt{\Delta/C_{\max}})$ writes it into a target $c$ (with $C_{\max}\ge\max_x\Delta(x)$); $\mathcal{F}^\dagger$ uncomputes the work register. The result is
+\begin{equation}\label{eq_Astate}
+\mathcal{A}\ket{0}=\sum_x\sqrt{p(x)}\,\ket{x}\Big(\sqrt{1-\tfrac{\Delta(x)}{C_{\max}}}\ket{0}_c+\sqrt{\tfrac{\Delta(x)}{C_{\max}}}\ket{1}_c\Big),
+\quad
+\Pr[c=1]=\frac{\E_\Q[\Delta]}{C_{\max}}.
+\end{equation}
+One QAE returns $\tilde a\approx\Pr[c=1]$ with $O(1/\varepsilon)$ calls~\cite{brassard2002amplitude,montanaro2015quantum}, and $C=e^{-rT}C_{\max}\tilde a$.
+
+\begin{figure}[h]
+\centering
+\begin{quantikz}[column sep=0.30cm, row sep=0.30cm]
+\lstick[wires=3]{$\ket{0}^{\otimes M}$ \\ \scriptsize paths}
+ & \gate[3]{R_Y(\theta_i)} & \gate[4]{\mathcal{F}} & \qw & \gate[4]{\mathcal{F}^\dagger} & \qw \\
+ & & & \qw & & \qw \\
+ & & & \qw & & \qw \\
+\lstick{$\ket{0}^{\otimes\ell}$ \\ \scriptsize work}
+ & \qw & & \ctrl{1} & & \qw \\
+\lstick{$\ket{0}_c$ \\ \scriptsize target}
+ & \qw & \qw & \gate{R_Y(2\arcsin\!\sqrt{\Delta/C_{\max}})} & \qw & \qw
+\end{quantikz}
+\caption{Preparation operator $\mathcal{A}$ of Route II (Eq.~\eqref{eq_Astate}). This route does not use the QNDM phase $\ket{\psi_3}$: the payoff is re-encoded into an amplitude. Choosing $f=S_T$ gives the European payoff, $f=\bar S$ the Asian one.}
+\label{fig_A}
+\end{figure}
+
+This route gives the price in one run but reintroduces a comparator and a (small) value register, partly giving up the qubit advantage of Route~I.
+
+%=========================================================
+\section{Route III --- single-run pricing via QSVT}\label{sec_qsvt}
+%=========================================================
+
+We now keep the QNDM phase encoding \emph{and} obtain the price in one estimation, with no $\lambda$-sweep, by a spectral transformation~\cite{gilyen2019qsvt,dong2022qetu,martyn2021grand}.
+
+\paragraph{QNDM as a phase oracle.} Fix a single coupling $c=\pi/\max_x|f(x)-K|$ and absorb $K$ as above. The QNDM accumulation is then the diagonal unitary
+\begin{equation}\label{eq_oracle}
+O=\sum_x e^{\,i\,\theta(x)}\ket{x}\!\bra{x},\qquad \theta(x)=c\,(f(x)-K)\in[-\pi,\pi],
+\end{equation}
+a \emph{phase oracle} whose eigenphases encode $f$, built with the $O(\log M)$ Hamming-weight machinery of Sec.~\ref{sec_qndm} --- no numerical register for $f$.
+
+\paragraph{Payoff as an eigenphase polynomial (QET-U).} Given controlled access to $O$, the quantum eigenvalue transformation~\cite{dong2022qetu,gilyen2019qsvt} interleaves controlled-$O$ with single-qubit rotations $R_Z(\varphi_k)$ on one signal qubit $s$,
+\begin{equation}\label{eq_seq}
+W=R_Z(\varphi_0)\prod_{k=1}^{d}\big[\text{c-}O\;R_Z(\varphi_k)\big],
+\end{equation}
+to block-encode a bounded real polynomial of $\cos(\theta/2)$. Since $c$ makes $f\mapsto\cos(\theta/2)$ a monotone bijection on the principal branch, we choose the polynomial to approximate the \emph{square root} of the rescaled payoff,
+\begin{equation}\label{eq_poly}
+p(\theta(x))\approx\sqrt{\frac{\max(f(x)-K,0)}{C_{\max}}}\in[0,1].
+\end{equation}
+The square root is required because QAE reads a squared amplitude: with the target qubit marked by $s=1$,
+\begin{equation}\label{eq_amp}
+W:\ \ket{x}\ket{0}_s\mapsto\ket{x}\big(p(\theta(x))\ket{1}_s+\sqrt{1-p^2}\,\ket{0}_s\big),
+\qquad
+\Pr[s=1]=\frac{\E_\Q[\max(f-K,0)]}{C_{\max}}.
+\end{equation}
+The $d+1$ angles $\{\varphi_k\}$ are computed \emph{classically and once} (e.g.\ Remez plus phase-factor finding, \texttt{pyqsp}/\texttt{QSPPACK}); their number is $d+1$, \emph{linear} in the degree and independent of $M$.
+
+\paragraph{Single QAE.} With $\mathcal{A}_{\text{QSVT}}=W\cdot(\text{loading})$, one amplitude estimation returns $\Pr[s=1]$ to error $\varepsilon$ in $O(1/\varepsilon)$ calls, and $C=e^{-rT}C_{\max}\tilde a$. No $\lambda$-grid, no Fourier inversion, no price register.
+
+\begin{figure}[h]
+\centering
+\begin{quantikz}[column sep=0.30cm, row sep=0.32cm]
+\lstick{$\ket{0}_s$ \\ \scriptsize signal}
+ & \gate{R_Z(\varphi_0)} & \ctrl{1} & \gate{R_Z(\varphi_1)} & \ctrl{1} & \ \cdots\ & \gate{R_Z(\varphi_d)} & \meter{}\ \text{(QAE)} \\
+\lstick[wires=2]{\shortstack{$\ket{0}^{\otimes M}$\\ \scriptsize paths}}
+ & \gate[2]{R_Y(\theta_i)} & \gate[2]{O} & \qw & \gate[2]{O} & \ \cdots\ & \qw & \qw \\
+ & & & \qw & & \ \cdots\ & \qw & \qw
+\end{quantikz}
+\caption{Route III: the QNDM phase oracle $O$ of Eq.~\eqref{eq_oracle} is processed by a QET-U sequence~\cite{dong2022qetu} of $d$ controlled-$O$ calls and $R_Z(\varphi_k)$ rotations, realising the polynomial \eqref{eq_poly}; one QAE on $s$ yields the price.}
+\label{fig_qsvt}
+\end{figure}
+
+The cost of the kink: approximating $\sqrt{\max(\cdot,0)}$ to accuracy $\varepsilon$ with smoothing $\delta$ needs degree $d=O(\tfrac1\delta\log\tfrac1\varepsilon)$, i.e.\ $d$ oracle calls per preparation, the only overhead beyond a smooth-payoff QAE.
+
+%=========================================================
+\section{Resource analysis and comparison}\label{sec_scaling}
+%=========================================================
+
+\subsection{Error scaling}
+All quantum routes inherit the QAE scaling: $O(1/\varepsilon)$ queries versus the $O(1/\varepsilon^2)$ of classical MC~\cite{montanaro2015quantum,brassard2002amplitude}. The distinction between the quantum methods is therefore in the prefactors --- loading and qubit count --- not in the $\varepsilon$-exponent.
+
+\subsection{The decisive prefactor: state preparation}
+Oracle-based pricing~\cite{Stamatopoulos_2020} hides its cost in the loader $\mathcal{P}$, expensive for generic densities~\cite{grover2002creating} and identified as part of the advantage threshold~\cite{chakrabarti2021threshold}. Here loading is exact and $O(M)$ (Prop.~\ref{prop_load}). This is the main structural win, unconditional for the binomial path measure.
+
+\subsection{Complexity table}
+Let $\varepsilon$ be the price error, $M$ the steps, $\delta$ the payoff-kink smoothing (Route III), $n_p$ the price-precision bits of the oracle scheme.
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{Qubits} & \textbf{Queries} & \textbf{Loading} \\
+\midrule
+Classical MC~\cite{glasserman2004monte} & $0$ & $O(1/\varepsilon^2)$ & sampling \\
+Oracle QAE~\cite{Stamatopoulos_2020} & $n_p+n_{\text{load}}+O(\log\tfrac1\varepsilon)$ & $O(1/\varepsilon)$ & oracle, costly/approx.~\cite{grover2002creating} \\
+Route I (QNDM/Fourier) & $M+1+O(\log M)$ & $O(1/\varepsilon)\times N_\lambda$ & exact, $O(M)$ \\
+Route II (QAE) & $M+O(\log M)+O(\log\tfrac1\varepsilon)$ & $O(1/\varepsilon)$ & exact, $O(M)$ \\
+Route III (QSVT) & $M+O(1)+O(\log\tfrac1\varepsilon)$ & $O(\tfrac{1}{\delta\varepsilon}\log\tfrac1\varepsilon)$ & exact, $O(M)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Per-query depth is $\mathrm{poly}(M)$ for all quantum routes, times $d=O(\tfrac1\delta\log\tfrac1\varepsilon)$ for Route III. The QNDM family beats the oracle scheme on the loading column --- the term that dominates in practice~\cite{chakrabarti2021threshold} --- and Routes I, III also remove the $n_p$ price register.
+
+\subsection{Advantages over oracle-based QAE, with regime of validity}
+\begin{enumerate}
+    \item \textbf{Exact oracle-free loading} (decisive): $O(M)$ exact vs.\ a generic $\mathcal{P}$; unconditional for path-dependent/time-dependent laws. (\emph{Caveat:} for a log-normal European terminal law $\mathcal{P}$ is Grover--Rudolph-loadable~\cite{grover2002creating}, narrowing the edge to constants.)
+    \item \textbf{No price register}: the value lives in a phase/eigenphase, saving $n_p$ qubits; unconditional.
+    \item \textbf{Native time dependence}: each $\theta_i$ and each phase in $O$ uses $r_i,\sigma_i$~\cite{Kim_2017}; an oracle scheme generally re-compiles $\mathcal{P}$ per slice.
+    \item \textbf{Exact lattice law}: no qGAN approximation bias; only the universal $O(1/M)$ lattice bias.
+\end{enumerate}
+
+\subsection{Honest limitations}
+\begin{itemize}
+    \item Route I multiplies cost by the $\lambda$-grid size $N_\lambda$.
+    \item Route II reintroduces a comparator and small value register.
+    \item Route III adds the multiplicative degree $d$ and a one-off classical phase-factor computation; the oracle scheme's comparator-plus-$R_Y$ payoff is shallower~\cite{woerner2019riskanalysis}.
+    \item For small $M$ and loose $\varepsilon$, classical MC --- needing no error correction --- remains practically superior; the crossover is at small $\varepsilon$ / large $M$~\cite{chakrabarti2021threshold}.
+\end{itemize}
+
+%=========================================================
+\section{Conclusion}
+%=========================================================
+
+We gave an explicit quantum algorithm for European and Asian option pricing on a time-dependent binomial tree, with three price-extraction routes over a common exact loading. The single-run QSVT route is fully constructive (no hidden oracle) and matches the optimal $O(1/\varepsilon)$ amplitude-estimation scaling~\cite{brassard2002amplitude,montanaro2015quantum} while removing the two costs that dominate quantum pricing pipelines: the distribution-loading oracle~\cite{Stamatopoulos_2020,chakrabarti2021threshold} and the price-precision register. The advantage is decisive for high-accuracy, path-dependent, time-dependent pricing, and narrows for simple European options with analytically loadable densities. Small-scale demonstrations on simulators and early fault-tolerant devices~\cite{dong2022qetu,martin2021asian} are a natural next step, together with a numerical study of the $1/\varepsilon$ convergence and the QSVT degree $d$.
+
+\newpage
+%=========================================================
+\appendix
+%=========================================================
+
+\section{Implementation of the Hamming-weight operator}\label{app_hw}
+
+Here we give the explicit gate-level construction of the operator that stores the Hamming weight of a path string into an ancillary register,
+\begin{equation}\label{eq_hw_map}
+\ket{x}\otimes\ket{0}\ \xrightarrow{\ \mathrm{HW}(x)\ }\ \ket{x}\otimes\ket{w(x)},
+\qquad w(x)=\sum_{i}x_i,
+\end{equation}
+which is the workhorse behind the diagonal phase operators $U_t$ of Sec.~\ref{sec_qndm} and behind the QNDM phase oracle $O$ of Sec.~\ref{sec_qsvt}: on a recombining tree the price $S_t$ depends on the path only through $w_t$, so storing $w$ (or kicking a $w$-dependent phase) is all that is needed, with $m=\lceil\log_2(n+1)\rceil$ ancillas rather than a full numerical register.
+
+\paragraph{The phase-increment operator.}
+Start from a $n$-qubit string $\ket{x}$ and add an $m=\log_2(n+1)$-qubit ancilla, $\ket{\psi_0}=\ket{x}\otimes\ket{0}$. Define
+\begin{equation}
+\Phi=\bigotimes_{k=0}^{m-1}R_k\!\qty(\frac{2\pi}{2^{k+1}}),
+\qquad
+R_k(\theta)=\begin{pmatrix}1&0\\0&e^{i\theta}\end{pmatrix},
+\end{equation}
+a tensor product of phase gates. Phase gates are diagonal in the Fourier basis: recalling the Quantum Fourier Transform on $m$ qubits,
+\begin{equation}
+\ket{j}\xrightarrow{\mathrm{QFT}}\ket{\tilde\jmath}=\frac{1}{\sqrt{2^m}}\sum_{k=0}^{2^m-1}e^{i\frac{2\pi jk}{2^m}}\ket{k}
+=\bigotimes_{k=0}^{m-1}\qty(\ket{0}+e^{i\frac{2\pi j k}{2^m}}\ket{1})\quad(\text{Draper form}),
+\end{equation}
+the operator $\Phi$ acts as a $+1$ shift in Fourier space,
+\begin{equation}\label{eq_phi_shift}
+\Phi\ket{\tilde\jmath}=\ket{\widetilde{j+1}},
+\qquad\text{so that}\qquad
+U_{+1}\equiv\mathrm{QFT}^\dagger\,\Phi\,\mathrm{QFT},\quad U_{+1}\ket{x}=\ket{x+1\bmod 2^m}.
+\end{equation}
+
+\paragraph{Controlled increments accumulate the weight.}
+Define the controlled operator
+\begin{equation}
+C_{x_i}(\Phi)=P_0^{(i)}\otimes\Id+P_1^{(i)}\otimes\Phi,
+\qquad P_0^{(i)}=\ket{0_i}\!\bra{0_i},\ P_1^{(i)}=\ket{1_i}\!\bra{1_i},
+\end{equation}
+acting as identity when $x_i=0$ and as $\Phi$ on the ancilla when $x_i=1$. Letting $S_x=\{i\mid x_i=1\}$, apply $C_{x_i}(\Phi)$ on every qubit of the string register, acting on $\ket{x}\otimes\ket{\tilde 0}$:
+\begin{equation}
+\ket{\psi_1}=\qty(\prod_{i\in S_x}C_{x_i}(\Phi))\qty(\ket{x}\otimes\ket{\tilde 0}).
+\end{equation}
+Each $x_i=1$ applies $\Phi$ once; since $\abs{S_x}=w(x)$, the operator $\Phi$ is applied exactly $w(x)$ times, so by Eq.~\eqref{eq_phi_shift}
+\begin{equation}
+\ket{\psi_2}=\ket{x}\otimes\Phi^{w}\ket{\tilde 0}=\ket{x}\otimes\ket{\widetilde{w(x)}}.
+\end{equation}
+A final inverse QFT on the ancilla yields $\ket{x}\otimes\ket{w(x)}$, which is the map~\eqref{eq_hw_map}; linearity and unitarity are manifest. The cost is $O(n)$ controlled increments and two QFTs of size $m=O(\log n)$.
+
+\section{Implementation of the QNDM mean operator}\label{app_qndm}
+
+We now use the Hamming-weight register of App.~\ref{app_hw} to build the QNDM operator that imprints the path-average information into the detector phase, as required by Route~I (Sec.~\ref{sec_qndm}) and, with a single coupling, by the phase oracle of Route~III (Sec.~\ref{sec_qsvt}).
+
+\paragraph{Weight-dependence of the price.} From the CRR construction (Sec.~\ref{sec_crr}), at maturity $T=N\deltat$ the price depends on the path only through the number $k$ of up-moves,
+\begin{equation}\label{eq_S_weight}
+S_T=S_0\,u^{N-k}\,d^{\,k},
+\end{equation}
+and the same holds at any intermediate step $t=i\deltat$, $i\le N$. Hence a phase $e^{\pm i\lambda S_t(x)}$ can be applied as a diagonal gate \emph{controlled by the weight register} $\ket{w}$, i.e.\ a $\mathrm{diag}(e^{i\lambda S(x_0)},e^{-i\lambda S(x_0)},\dots)$ acting on the $m$-qubit ancilla and the detector. The full mean operator is then: compute $\mathrm{HW}(x)$, apply the weight-controlled diagonal phase, uncompute $\mathrm{HW}^\dagger(x)$. The circuit is shown in Fig.~\ref{fig_QNDM_mean_circuit}.
+
+\begin{figure}[h]
+    \centering
+    \begin{quantikz}
+    \lstick[wires=4]{$\ket{\vb{x}}$}
+    & \lstick{$x_0$} \setwiretype{n}  & \setwiretype{q} & \gate{R_{y}(\theta)} & \gate[7]{\mathrm{HW}(x)} & & \gate[7]{\mathrm{HW}^{\dagger}(x)} & \qw \\
+    & \lstick{$x_1$} \setwiretype{n}  & \setwiretype{q} &                     &                 & &                 & \qw \\
+    & \setwiretype{n} \lstick{} & & \myvdots &                 & &                 & \\
+    & \lstick{$x_n$} \setwiretype{n}  & \setwiretype{q} &                     &                 & &                 & \qw \\
+    \lstick[wires=3]{$m$}
+    & \lstick{$a_1$} \setwiretype{n}  & \setwiretype{q} &                     &                 & \gate[4]{\text{diag}(e^{i\lambda S(x_0)},e^{-i\lambda S(x_0)},\dots)} & & \qw \\
+    & \setwiretype{n} \lstick{} & & \myvdots &                 & & & \\
+    & \lstick{$a_m$} \setwiretype{n}  & \setwiretype{q} &                     &                 & & & \qw \\
+        & \lstick{$d$}   \setwiretype{n}  & \setwiretype{q} &                     &                 & & & \qw  \\
+    \end{quantikz}
+    \caption{Circuit for the mean. The path qubits $\ket{\vb{x}}$ are loaded by $R_Y(\theta)$ (Sec.~\ref{sec_loading}); the Hamming-weight block $\mathrm{HW}(x)$ (App.~\ref{app_hw}) writes $w$ into the $m=\lceil\log_2(n+1)\rceil$ ancillas $a_1,\dots,a_m$; a weight-controlled diagonal operator imprints the price-dependent phase $e^{\pm i\lambda S(x)}$ on the detector $d$; finally $\mathrm{HW}^\dagger(x)$ uncomputes the weight register.}
+    \label{fig_QNDM_mean_circuit}
+\end{figure}
+
+\paragraph{Worked $2$-qubit example.} Considering only the path and detector registers, the sequence Hadamard / rotation / diagonal acts as
+\begin{align}
+    \ket{00}\otimes\ket{0_d}
+    &\xrightarrow{H_d}\ket{00}\otimes\tfrac{1}{\sqrt2}\qty(\ket{0_d}+\ket{1_d})\notag\\
+    &\xrightarrow{R_y^{(1)}(\theta)}\qty(\sqrt{p}\ket{0}+\sqrt{1-p}\ket{1})\otimes\ket{0}\otimes\tfrac{1}{\sqrt2}\qty(\ket{0_d}+\ket{1_d})\notag\\
+    &\xrightarrow{\ }\tfrac{1}{\sqrt2}\qty(\sqrt{p}\ket{0}\ket{0_d}+\sqrt{1-p}\ket{1}\ket{0_d}+\sqrt{p}\ket{0}\ket{1_d}+\sqrt{1-p}\ket{1}\ket{1_d})\otimes\ket{0}\notag\\
+    &\xrightarrow{\text{diag}}\tfrac{1}{\sqrt2}\big(\sqrt{p}\,e^{i\lambda S_0 d}\ket{0}\ket{0_d}+\sqrt{1-p}\,e^{i\lambda S_0 u}\ket{1}\ket{0_d}\notag\\
+    &\hspace{1.6cm}+\sqrt{p}\,e^{-i\lambda S_0 d}\ket{0}\ket{1_d}+\sqrt{1-p}\,e^{-i\lambda S_0 u}\ket{1}\ket{1_d}\big)\otimes\ket{0}\notag\\
+    &\xrightarrow{R_y^{(2)}(\theta)}\ \cdots
+\end{align}
+After the second step the state is
+\begin{equation}
+\begin{aligned}
+\tfrac{1}{\sqrt2}\Big[\,
+&(1-p)\,e^{i\lambda S_{00}}\ket{00}\ket{0_d}+(1-p)\,e^{-i\lambda S_{00}}\ket{00}\ket{1_d}\\
+&+\sqrt{p(1-p)}\,e^{i\lambda S_{01}}\ket{01}\ket{0_d}+\sqrt{p(1-p)}\,e^{-i\lambda S_{01}}\ket{01}\ket{1_d}\\
+&+\sqrt{p(1-p)}\,e^{i\lambda S_{10}}\ket{10}\ket{0_d}+\sqrt{p(1-p)}\,e^{-i\lambda S_{10}}\ket{10}\ket{1_d}\\
+&+p\,e^{i\lambda S_{11}}\ket{11}\ket{0_d}+p\,e^{-i\lambda S_{11}}\ket{11}\ket{1_d}\,\Big],
+\end{aligned}
+\end{equation}
+where $S_{x_1x_2}$ is the average over the corresponding path, e.g.\ $S_{00}=\tfrac12 S_0(d+d\cdot d)$, $\dots$, $S_{11}=\tfrac12 S_0(u+u\cdot u)$. The detector thus carries $e^{\pm i\lambda S(x)}$ coherently over all paths --- the QNDM phase encoding of Eq.~\eqref{eq_psi3}.
+
+\paragraph{Read-out circuit.} The detector phase is read by the QNDM circuit of Fig.~\ref{fig_QNDM_circuit}, where the couplings are halved at each step ($\lambda,\lambda/2,\dots$) so that distinct paths acquire distinguishable eigenvalues $\pm\lambda\pm\tfrac\lambda2\pm\cdots$, and $U_{\text{rot}}$ selects the measurement basis ($H$ for the real part, $S^\dagger H$ for the imaginary part of the characteristic function).
+
+\begin{figure}[h]
+    \centering
+    \begin{quantikz}
+        \lstick{$\ket{0}$} &          & \gate{R_{y}(\theta)} & \gate[3]{e^{i \lambda Z\dots Z}} &                      & \gate[3]{e^{i \frac{\lambda}{2} Z\dots Z}} &        \\
+        \lstick{$\ket{0}$} &          &                      &                                  & \gate{R_{y}(\theta)} &                                            &       \\
+        \lstick{$\ket{0}$} & \gate{H} &                      &                                  &                      &                                            & \gate{U_{\text{rot}}}
+    \end{quantikz}
+    \caption{QNDM read-out circuit. The path qubits are rotated by $R_Y(\theta)$ and coupled to the detector (bottom wire, prepared in $\ket{+}$ by $H$) through diagonal interactions $e^{i\lambda Z\cdots Z}$ with geometrically decreasing couplings; $U_{\text{rot}}$ is $H$ or the $S^\dagger H$ rotation to extract the imaginary part of $G(\lambda)$.}
+    \label{fig_QNDM_circuit}
+\end{figure}
+
+\newpage
+\printbibliography
+
+\end{document}
