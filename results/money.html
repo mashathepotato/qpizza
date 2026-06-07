@@ -349,6 +349,52 @@ tr.sota .errbar .fill{background:linear-gradient(90deg,#a23a5c,var(--mag))}
         <b>57 344 oracle calls at ε = 0.01 → €2.7756 ± 0.0003</b> (table below).</div>
     </div>
 
+    <div class="board reveal d1">
+      <table>
+        <thead><tr>
+          <th>Method</th><th>Price (€)</th><th>Circuit depth</th><th>Qubits</th>
+          <th>Query scaling</th><th>Error vs ground truth</th>
+        </tr></thead>
+        <tbody>
+          <tr class="classical">
+            <td class="method">Classical Monte&nbsp;Carlo<span class="tag">CLASSICAL</span></td>
+            <td class="numc">2.7747</td><td class="numc">0 CZ</td><td class="numc">0</td>
+            <td class="numc">O(1/ε²)</td>
+            <td><div class="errbar"><div class="rail"><div class="fill" data-w="68"></div></div><span class="lab">5.5e−4</span></div></td>
+          </tr>
+          <tr class="ours">
+            <td class="method">QNDM Fourier<span class="tag">OURS</span></td>
+            <td class="numc bright">2.7752</td><td class="numc">112 CZ</td><td class="numc">5</td>
+            <td class="numc">O(1/ε²) shots</td>
+            <td><div class="errbar"><div class="rail"><div class="fill" data-w="2"></div></div><span class="lab">1.3e−8</span></div></td>
+          </tr>
+          <tr class="ours hero-row-t">
+            <td class="method">QNDM-QAE<span class="tag">OURS</span><span class="star">★</span></td>
+            <td class="numc bright">2.7756</td><td class="numc bright">16 CZ</td><td class="numc">5</td>
+            <td class="numc">O(1/ε)</td>
+            <td><div class="errbar"><div class="rail"><div class="fill" data-w="64"></div></div><span class="lab">3.2e−4</span></div></td>
+          </tr>
+          <tr class="ours">
+            <td class="method">novel QSVT<span class="tag">OURS</span></td>
+            <td class="numc">2.7845</td><td class="numc">2240 CZ</td><td class="numc">5</td>
+            <td class="numc">O(1/ε)</td>
+            <td><div class="errbar"><div class="rail"><div class="fill" data-w="85"></div></div><span class="lab">9.2e−3</span></div></td>
+          </tr>
+          <tr class="sota">
+            <td class="method">SOTA oracle-QAE<span class="tag">SOTA</span></td>
+            <td class="numc">2.5819</td><td class="numc">100 CZ</td><td class="numc">7</td>
+            <td class="numc">O(1/ε)</td>
+            <td><div class="errbar"><div class="rail"><div class="fill" data-w="97"></div></div><span class="lab">5.7e−2</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="foot" style="max-width:900px;margin-top:14px">Ground truth = exact binomial tree (M = 3, €2.7752) for MC and our
+      routes; the SOTA oracle-QAE prices a lognormal Black–Scholes target, so its error is vs BS — a <em>different</em> reference,
+      dominated by its rescaling-linearisation bias, not the amplitude estimation. Fourier is statevector-exact; QAE beats its
+      ε = 0.01 target; QSVT carries its honest straddle-degree floor. <b>All numbers from real runs.</b></p>
+    <script>addEventListener('load',()=>setTimeout(()=>document.querySelectorAll('.board .fill').forEach(f=>{f.style.width=(f.dataset.w||0)+'%';}),300));</script>
+
     <p class="lede reveal" style="margin-top:64px">We measured the scaling directly: five seeds, averaged,
       on the <span class="num">M = 5</span> tree (ground truth <span class="num">€2.7060</span>).
       Monte Carlo's error descends at slope <strong>−0.60</strong>, our QAE at <strong>−0.84</strong> —
